@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // change if needed
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Vendor {
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  type             String?
+  industry         String?
+  authType         String?
+  clientId         String?
+  clientSecret     String?
+  authorizationUrl String?
+  tokenUrl         String?
+  redirectUri      String?
+  tokenType        String?
+  apiToken         String?
+  jwtToken         String?
+  certificate      String?
+  publicKey        String?
+  privateKey       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Parameter {
+  id           String   @id @default(uuid())
+  name         String
+  vendors      String?
+  variableType String?
+  pinType      String?
+  pinCount     Int      @default(0)
+  isConstant   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ItemType {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  synonyms    String?
+  vendorName  String?
+  image       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Communication {
+  id                           String   @id @default(uuid())
+  name                         String
+  groupName                    String
+  itemType                     String
+  protocol                     String
+  messageFormat                String
+  centric                      String
+  messageStructure             String?
+  confirmationMessageStructure String?
+  icon                         String
+  needFirmware                 Boolean  @default(false)
+  needConfirmation             Boolean  @default(false)
+  image                        String?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+}
+
+model Message {
+  id                        String   @id @default(uuid())
+  name                      String?
+  itemType                  String
+  communicationPolicy       String
+  topic                     String
+  messageType               String?
+  commandType               String?
+  policyType                String?
+  retainMessages            Boolean  @default(false)
+  loggedMessage             Boolean  @default(false)
+  qos                       Int?
+  pollingInterval           Int?
+  payloadFormat             String?
+  confirmationPayloadFormat String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model Item {
+  id                  String   @id @default(uuid())
+  name                String
+  itemCode            String
+  description         String?
+  metadata            String?
+  itemPollingConfig   String?
+  vendor              String
+  itemType            String
+  communicationPolicy String
+  gateway             String?
+  icon                String?
+  tags                String?
+  componentCount      Int      @default(0)
+  secureItem          Boolean  @default(false)
+  image               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Device {
+  id               String   @id @default(uuid())
+  name             String
+  foreignId        String?
+  gatewayForeignId String?
+  serialNumber     String
+  image            String?
+  icon             String?
+  connectionType   String
+  project          String
+  metadata         String?
+  address          String?
+  addressDetails   String?
+  houseNo          String?
+  block            String?
+  street           String?
+  city             String?
+  state            String?
+  country          String?
+  zipCode          String?
+  status           String   @default("provisioning")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

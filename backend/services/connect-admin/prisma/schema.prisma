@@ -1,0 +1,163 @@
+// This is your Prisma schema file
+// Location: prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"  // or "mysql" or "sqlite" based on your database
+  url      = env("DATABASE_URL")
+}
+
+model Device {
+  id              String   @id @default(uuid())
+  deviceId        String   @unique
+  deviceType      String   @default("SINGLE") // 'SINGLE', 'SWITCH_4CH', 'DONGLE_2CH', 'SMART_METER'
+  channels        String?  // For dongle: "4S1F", "2C0F", etc.
+  thingId         String?
+  ipAddress       String?
+  macAddress      String?
+  firmwareVersion String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  // Relations
+  switches        DeviceSwitch[]
+  climateData     DeviceClimate[]
+  energyData      DeviceEnergy[]
+  healthData      DeviceHealth[]
+  smartMeterData  SmartMeterData[]
+
+  @@index([deviceId])
+  @@index([thingId])
+  @@index([deviceType])
+}
+
+model DeviceSwitch {
+  id        String   @id @default(uuid())
+  deviceId  String
+  switchNo  Int
+  status    String   // "on" or "off"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@unique([deviceId, switchNo])
+  @@index([deviceId])
+}
+
+model DeviceClimate {
+  id          String   @id @default(uuid())
+  deviceId    String
+  temperature Float
+  humidity    Float
+  sunlight    Float
+  createdAt   DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([createdAt])
+}
+
+model DeviceEnergy {
+  id        String   @id @default(uuid())
+  deviceId  String
+  voltage   Float
+  current   Float
+  power     Float
+  unit      Float
+  createdAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([createdAt])
+}
+
+model DeviceHealth {
+  id        String   @id @default(uuid())
+  deviceId  String
+  heap      Int?
+  rssi      Int?
+  carrier   String?
+  fault     String?
+  createdAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([createdAt])
+}
+
+model SmartMeterData {
+  id              String   @id @default(uuid())
+  deviceId        String
+  meter           String?
+
+  // Status
+  status          String?
+  machine         Boolean?
+  fault           String?
+  temperatureC    Float?
+  frequencyHz     Float?
+
+  // Voltage
+  voltagePhase1   Float?
+  voltagePhase2   Float?
+  voltagePhase3   Float?
+  voltageTotal    Float?
+
+  // Current
+  currentPhase1   Float?
+  currentPhase2   Float?
+  currentPhase3   Float?
+  currentTotal    Float?
+
+  // Active Power
+  powerPhase1     Float?
+  powerPhase2     Float?
+  powerPhase3     Float?
+  powerTotalActive Float?
+
+  // Power Factor
+  powerFactorPhase1 Float?
+  powerFactorPhase2 Float?
+  powerFactorPhase3 Float?
+  powerFactorTotal  Float?
+
+  // Energy
+  energyPhaseR    Float?
+  energyPhaseY    Float?
+  energyPhaseB    Float?
+  energyTotal3Phase Float?
+
+  // Derived
+  reactivePower   Float?
+  apparentPower   Float?
+
+  createdAt       DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([createdAt])
+  @@index([deviceId, createdAt])
+}
+
+model SmartMeterSettings {
+  id              String   @id @default(uuid())
+  deviceId        String   @unique
+  parameter       String?  // Vrp or other energy parameter
+  range           String?  // 240 or other threshold value
+  threshold       String?  // "low" or "high"
+  triggerTime     String?  // "16.00" - 24hr format
+  stopTime        String?  // "19.30" - 24hr format
+  repeatPattern   String?  // "oooooof" - monday-sunday pattern
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([deviceId])
+}

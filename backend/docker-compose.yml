@@ -1,0 +1,22 @@
+﻿version: "3.9"
+
+services:
+  orbit-backend:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./services/orbit-backend:/app
+    command: sh -c "npm install && npm run dev"
+    env_file:
+      - ./services/orbit-backend/.env
+    ports:
+      - "4000:4000"
+
+  connect-admin:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./services/connect-admin:/app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "5000:5000"

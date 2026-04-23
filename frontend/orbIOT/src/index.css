@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+:root {
+  --inventory-bg: #eef7ff;
+  --inventory-surface: #ffffff;
+  --inventory-text: #0f3f66;
+  --inventory-muted: #5f84a8;
+  --inventory-border: #c9def2;
+  --inventory-primary: #1e76c9;
+  --inventory-primary-hover: #1763aa;
+  --inventory-accent: #2f8cff;
+
+  color: #0f172a;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.75;
+  font-weight: 400;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: #0f172a;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  letter-spacing: -0.011em;
+  background: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+p {
+  margin: 0;
+}
+
+.expo-eyebrow {
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.expo-display {
+  font-size: clamp(2.5rem, 4.4vw, 4rem);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.055em;
+}
+
+.expo-page-title {
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
+.expo-section-title {
+  font-size: clamp(1.625rem, 2.3vw, 2.25rem);
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.042em;
+}
+
+.expo-card-title {
+  font-size: 1.125rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+
+.expo-body {
+  font-size: 1rem;
+  line-height: 1.75;
+  font-weight: 400;
+  letter-spacing: -0.011em;
+}
+
+.expo-note {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.expo-metric {
+  font-size: clamp(1.875rem, 2.5vw, 2.5rem);
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.inventory-form-shell {
+  width: min(640px, calc(100vw - 2rem));
+  max-width: 100%;
+}
+
+.inventory-page-theme {
+  background: linear-gradient(180deg, #eef7ff 0%, #f7fbff 100%);
+  color: var(--inventory-text);
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.inventory-page-theme h1,
+.inventory-page-theme h2,
+.inventory-page-theme h3 {
+  color: #1a5b92;
+  font-weight: 650 !important;
+}
+
+.inventory-page-theme .inventory-kpi-card {
+  border: 1px solid #c6ddf3;
+  background: linear-gradient(145deg, #ffffff 0%, #f1f8ff 58%, #e8f4ff 100%);
+  box-shadow: 0 10px 20px rgba(47, 140, 210, 0.08);
+}
+
+.inventory-page-theme .inventory-kpi-value {
+  color: #18629d !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.inventory-page-theme button[class*="bg-slate-900"],
+.inventory-page-theme button[class*="bg-slate-800"],
+.inventory-page-theme button[class*="bg-blue-600"],
+.inventory-page-theme button[class*="bg-blue-700"],
+.inventory-form-theme button[class*="bg-slate-900"],
+.inventory-form-theme button[class*="bg-slate-800"],
+.inventory-form-theme button[class*="bg-blue-600"],
+.inventory-form-theme button[class*="bg-blue-700"] {
+  background: linear-gradient(180deg, #2f8cff 0%, #2478df 100%) !important;
+  border-color: #2b83ef !important;
+  color: #ffffff !important;
+}
+
+.inventory-page-theme button[class*="bg-slate-900"]:hover,
+.inventory-page-theme button[class*="bg-slate-800"]:hover,
+.inventory-page-theme button[class*="bg-blue-600"]:hover,
+.inventory-page-theme button[class*="bg-blue-700"]:hover,
+.inventory-form-theme button[class*="bg-slate-900"]:hover,
+.inventory-form-theme button[class*="bg-slate-800"]:hover,
+.inventory-form-theme button[class*="bg-blue-600"]:hover,
+.inventory-form-theme button[class*="bg-blue-700"]:hover {
+  background: linear-gradient(180deg, #2681ef 0%, #1f6ed0 100%) !important;
+}
+
+.inventory-page-theme button[class*="border-slate-300"][class*="bg-white"],
+.inventory-page-theme button[class*="border-slate-200"][class*="bg-white"],
+.inventory-form-theme button[class*="border-slate-300"][class*="bg-white"],
+.inventory-form-theme button[class*="border-slate-200"][class*="bg-white"] {
+  border-color: #bdd8f2 !important;
+  background: #f4faff !important;
+  color: #246ba2 !important;
+}
+
+.inventory-page-theme [class*="text-slate-900"],
+.inventory-page-theme [class*="text-slate-800"],
+.inventory-page-theme [class*="text-gray-900"] {
+  color: #1a5b92 !important;
+}
+
+.inventory-page-theme [class*="text-slate-600"],
+.inventory-page-theme [class*="text-slate-500"],
+.inventory-page-theme [class*="text-gray-600"],
+.inventory-page-theme [class*="text-gray-500"] {
+  color: #5f84a8 !important;
+}
+
+.inventory-form-theme {
+  color: #194c78;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.inventory-form-theme .inventory-form-panel {
+  border: 1px solid #c9def2;
+  border-radius: 16px;
+  background: #f4faff;
+  box-shadow: 0 10px 24px rgba(36, 104, 169, 0.12);
+}
+
+.inventory-form-theme .inventory-form-header {
+  border-bottom: 1px solid #d7e8f7;
+  background: #eef7ff;
+  padding: 1.5rem 1.75rem 1.1rem;
+}
+
+.inventory-form-theme .inventory-form-body {
+  background: #fbfeff;
+  padding: 1.25rem 1.75rem 1.5rem;
+}
+
+.inventory-form-theme .inventory-form-footer {
+  border-top: 1px solid #d7e8f7;
+  background: #eef7ff;
+  padding: 1rem 1.75rem;
+}
+
+.inventory-form-theme h2,
+.inventory-form-theme h3 {
+  color: #1a5b92;
+  font-weight: 650 !important;
+}
+
+.inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.inventory-form-theme select,
+.inventory-form-theme textarea {
+  border: 1px solid #c7ddf3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #18486f;
+  font-size: 0.84rem;
+}
+
+.inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.inventory-form-theme select:focus,
+.inventory-form-theme textarea:focus {
+  border-color: #3e97eb;
+  box-shadow: 0 0 0 2px rgba(62, 151, 235, 0.16);
+  outline: none;
+}
+
+.inventory-form-theme label > span {
+  color: #2d6697;
+  font-weight: 500;
+}
+
+.inventory-form-theme [class*="text-[#0f2554]"],
+.inventory-form-theme [class*="text-[#334664]"],
+.inventory-form-theme [class*="text-[#25334d]"],
+.inventory-form-theme [class*="text-slate-900"],
+.inventory-form-theme [class*="text-slate-700"] {
+  color: #1c629e !important;
+}
+
+.inventory-form-theme button[class*="bg-[#0f2554]"],
+.inventory-form-theme button[class*="bg-[#3d95f5]"] {
+  background: linear-gradient(180deg, #2f8cff 0%, #2478df 100%) !important;
+  border-color: #2b83ef !important;
+  color: #ffffff !important;
+}
