@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Hive Connect Mobile",
+    "slug": "hive-connect-mobile",
+    "scheme": "hiveconnect",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "extra": {
+      "apiBaseUrl": "http://10.0.2.2:4000/api"
+    },
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#f8fafc"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hiveconnect.mobile"
+    },
+    "android": {
+      "package": "com.hiveconnect.mobile",
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Hive Connect Mobile to scan device enrollment QR codes."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
