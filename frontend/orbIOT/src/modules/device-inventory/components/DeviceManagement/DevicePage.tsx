@@ -22,6 +22,35 @@ type DeviceRow = {
   updatedAt: string;
 } & Record<string, PrimitiveValue>;
 
+type VendorRow = {
+  id: string | number;
+  name?: PrimitiveValue;
+  vendorName?: PrimitiveValue;
+} & Record<string, PrimitiveValue>;
+
+type ItemTypeRow = {
+  id: string | number;
+  name?: PrimitiveValue;
+  vendorName?: PrimitiveValue;
+} & Record<string, PrimitiveValue>;
+
+type CommunicationRow = {
+  id: string | number;
+  name?: PrimitiveValue;
+  itemType?: PrimitiveValue;
+  itemTypeName?: PrimitiveValue;
+} & Record<string, PrimitiveValue>;
+
+type ItemRow = {
+  id: string | number;
+  name?: PrimitiveValue;
+  itemCode?: PrimitiveValue;
+  vendor?: PrimitiveValue;
+  itemType?: PrimitiveValue;
+  communicationPolicy?: PrimitiveValue;
+  metadata?: PrimitiveValue;
+} & Record<string, PrimitiveValue>;
+
 interface FilterConfig {
   key: string;
   label: string;
@@ -90,6 +119,155 @@ function sanitizeAwsIotAttributeValue(value: string): string {
     .trim()
     .replace(/[^a-zA-Z0-9_.,@/:#=\[\]-]/g, "_")
     .slice(0, 800);
+}
+
+function readStringFromUnknown(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+
+function parseJsonRecord(value: PrimitiveValue | undefined): Record<string, unknown> {
+  if (!value || typeof value !== "string") return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function buildCatalogMetadata(
+  values: Record<string, PrimitiveValue>,
+  fallbackThingName: string
+): string {
+  const base = parseJsonRecord(values.metadata);
+  const catalog = readRecord(base.catalog) ?? {};
+  const provisioning = readRecord(catalog.provisioning) ?? {};
+
+  const nextCatalog: Record<string, unknown> = {
+    ...catalog,
+    vendorName: readStringFromUnknown(values.vendorName) ?? readStringFromUnknown(catalog.vendorName) ?? undefined,
+    itemType: readStringFromUnknown(values.itemTypeName) ?? readStringFromUnknown(catalog.itemType) ?? undefined,
+    itemName: readStringFromUnknown(values.itemName) ?? readStringFromUnknown(catalog.itemName) ?? undefined,
+    itemCode: readStringFromUnknown(values.itemCode) ?? readStringFromUnknown(catalog.itemCode) ?? undefined,
+    communicationPolicy:
+      readStringFromUnknown(values.communicationPolicy) ??
+      readStringFromUnknown(catalog.communicationPolicy) ??
+      undefined,
+    thingName: readStringFromUnknown(catalog.thingName) ?? fallbackThingName,
+    provisioning: {
+      ...provisioning,
+      thingName: readStringFromUnknown(provisioning.thingName) ?? readStringFromUnknown(catalog.thingName) ?? fallbackThingName,
+      deviceType:
+        readStringFromUnknown(provisioning.deviceType) ??
+        readStringFromUnknown(catalog.deviceType) ??
+        undefined,
+      channels:
+        readStringFromUnknown(provisioning.channels) ??
+        readStringFromUnknown(catalog.channels) ??
+        undefined,
+      policyName:
+        readStringFromUnknown(provisioning.policyName) ??
+        readStringFromUnknown(catalog.policyName) ??
+        undefined,
+    },
+  };
+
+  const cleanedCatalog = Object.fromEntries(
+    Object.entries(nextCatalog).filter(([, entryValue]) => entryValue !== undefined && entryValue !== "")
+  );
+
+  return JSON.stringify(
+    {
+      ...base,
+      catalog: cleanedCatalog,
+    },
+    null,
+    2
+  );
+}
+
+function parseProvisioningConfig(
+  metadataValue: PrimitiveValue | undefined,
+  defaults: {
+    name: string;
+    project: string;
+    connectionType: string;
+    fallbackThingName: string;
+  }
+) {
+  const baseAttributes: Record<string, string> = {
+    displayName: sanitizeAwsIotAttributeValue(defaults.name),
+    project: sanitizeAwsIotAttributeValue(defaults.project),
+    connectionType: sanitizeAwsIotAttributeValue(defaults.connectionType),
+  };
+
+  if (!metadataValue || typeof metadataValue !== "string") {
+    return {
+      deviceId: defaults.fallbackThingName,
+      thingName: defaults.fallbackThingName,
+      attributes: baseAttributes,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(metadataValue) as Record<string, unknown>;
+    const catalog = readRecord(parsed.catalog) ?? {};
+    const provisioning = readRecord(catalog.provisioning) ?? catalog;
+    const provisioningAttributes = readRecord(provisioning.attributes) ?? {};
+
+    const attributes = Object.entries(provisioningAttributes).reduce<Record<string, string>>(
+      (acc, [key, value]) => {
+        if (value === null || value === undefined) return acc;
+        const sanitized = sanitizeAwsIotAttributeValue(String(value));
+        if (sanitized) acc[key] = sanitized;
+        return acc;
+      },
+      { ...baseAttributes }
+    );
+
+    const thingName =
+      readStringFromUnknown(provisioning.thingName) ??
+      readStringFromUnknown(catalog.thingName) ??
+      defaults.fallbackThingName;
+
+    const connectAdminDeviceId =
+      readStringFromUnknown(provisioning.connectAdminDeviceId) ??
+      readStringFromUnknown(catalog.connectAdminDeviceId) ??
+      readStringFromUnknown(catalog.thingId) ??
+      thingName;
+
+    return {
+      deviceId: connectAdminDeviceId,
+      thingName,
+      deviceType: readStringFromUnknown(provisioning.deviceType) ?? readStringFromUnknown(catalog.deviceType),
+      policyName: readStringFromUnknown(provisioning.policyName) ?? readStringFromUnknown(catalog.policyName),
+      s3Prefix: readStringFromUnknown(provisioning.s3Prefix) ?? readStringFromUnknown(catalog.s3Prefix),
+      channels: readStringFromUnknown(provisioning.channels) ?? readStringFromUnknown(catalog.channels),
+      forceProvision:
+        typeof provisioning.forceProvision === "boolean"
+          ? provisioning.forceProvision
+          : typeof catalog.forceProvision === "boolean"
+            ? catalog.forceProvision
+            : undefined,
+      attributes,
+    };
+  } catch {
+    return {
+      deviceId: defaults.fallbackThingName,
+      thingName: defaults.fallbackThingName,
+      attributes: baseAttributes,
+    };
+  }
 }
 
 function buildMergedMetadata(
@@ -205,6 +383,26 @@ export default function DeviceManagementPage() {
     Partial<DeviceRow>,
     Partial<DeviceRow>
   >(deviceInventoryApi.devices, { initialRows: INITIAL_ROWS });
+  const { rows: vendorRows, loading: vendorsLoading } = useCrudResource<
+    VendorRow,
+    Partial<VendorRow>,
+    Partial<VendorRow>
+  >(deviceInventoryApi.vendors, { initialRows: [] });
+  const { rows: itemTypeRows, loading: itemTypesLoading } = useCrudResource<
+    ItemTypeRow,
+    Partial<ItemTypeRow>,
+    Partial<ItemTypeRow>
+  >(deviceInventoryApi.itemTypes, { initialRows: [] });
+  const { rows: communicationRows, loading: communicationPoliciesLoading } = useCrudResource<
+    CommunicationRow,
+    Partial<CommunicationRow>,
+    Partial<CommunicationRow>
+  >(deviceInventoryApi.communications, { initialRows: [] });
+  const { rows: itemRows } = useCrudResource<
+    ItemRow,
+    Partial<ItemRow>,
+    Partial<ItemRow>
+  >(deviceInventoryApi.items, { initialRows: [] });
 
   const filteredRows = useMemo<DeviceRow[]>(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -229,6 +427,65 @@ export default function DeviceManagementPage() {
     () => rows.find((row) => row.id === selectedDeviceId) ?? null,
     [rows, selectedDeviceId]
   );
+  const vendorOptions = useMemo(() => {
+    const values = new Set<string>();
+    vendorRows.forEach((row) => {
+      const name = String(row.name ?? row.vendorName ?? "").trim();
+      if (name) values.add(name);
+    });
+    itemRows.forEach((row) => {
+      const name = String(row.vendor ?? "").trim();
+      if (name) values.add(name);
+    });
+    const current = String(formValues.vendorName ?? "").trim();
+    if (current) values.add(current);
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [formValues.vendorName, itemRows, vendorRows]);
+
+  const itemTypeOptions = useMemo(() => {
+    const values = new Set<string>();
+    const selectedVendor = String(formValues.vendorName ?? "").trim().toLowerCase();
+    itemTypeRows.forEach((row) => {
+      const name = String(row.name ?? "").trim();
+      if (!name) return;
+      const vendorName = String(row.vendorName ?? "").trim().toLowerCase();
+      if (!selectedVendor || !vendorName || vendorName === selectedVendor) {
+        values.add(name);
+      }
+    });
+    itemRows.forEach((row) => {
+      const typeName = String(row.itemType ?? "").trim();
+      const vendorName = String(row.vendor ?? "").trim().toLowerCase();
+      if (typeName && (!selectedVendor || !vendorName || vendorName === selectedVendor)) {
+        values.add(typeName);
+      }
+    });
+    const current = String(formValues.itemTypeName ?? "").trim();
+    if (current) values.add(current);
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [formValues.itemTypeName, formValues.vendorName, itemRows, itemTypeRows]);
+
+  const communicationPolicyOptions = useMemo(() => {
+    const values = new Set<string>();
+    const selectedItemType = String(formValues.itemTypeName ?? "").trim().toLowerCase();
+    communicationRows.forEach((row) => {
+      const name = String(row.name ?? "").trim();
+      const itemType = String(row.itemType ?? row.itemTypeName ?? "").trim().toLowerCase();
+      if (name && (!selectedItemType || !itemType || itemType === selectedItemType)) {
+        values.add(name);
+      }
+    });
+    itemRows.forEach((row) => {
+      const name = String(row.communicationPolicy ?? "").trim();
+      const itemType = String(row.itemType ?? "").trim().toLowerCase();
+      if (name && (!selectedItemType || !itemType || itemType === selectedItemType)) {
+        values.add(name);
+      }
+    });
+    const current = String(formValues.communicationPolicy ?? "").trim();
+    if (current) values.add(current);
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [communicationRows, formValues.communicationPolicy, formValues.itemTypeName, itemRows]);
 
   const openCreate = (): void => {
     setEditingId(null);
@@ -239,8 +496,17 @@ export default function DeviceManagementPage() {
   };
 
   const openEdit = (row: DeviceRow): void => {
+    const metadata = parseJsonRecord(row.metadata);
+    const catalog = readRecord(metadata.catalog) ?? {};
     setSelectedDeviceId(null);
-    setFormValues(row);
+    setFormValues({
+      ...row,
+      vendorName: String(catalog.vendorName ?? row.vendorName ?? ""),
+      itemTypeName: String(catalog.itemType ?? row.itemTypeName ?? row.itemType ?? ""),
+      itemName: String(catalog.itemName ?? row.itemName ?? ""),
+      itemCode: String(catalog.itemCode ?? row.itemCode ?? ""),
+      communicationPolicy: String(catalog.communicationPolicy ?? row.communicationPolicy ?? ""),
+    });
     setEditingId(row.id);
     setSubmitError(null);
     setFormOpen(true);
@@ -277,19 +543,26 @@ export default function DeviceManagementPage() {
 
     try {
       if (editingId !== null) {
-        await updateOne(editingId, { ...formValues, updatedAt: now });
+        await updateOne(editingId, {
+          ...formValues,
+          metadata: buildCatalogMetadata(
+            formValues,
+            readStringFromUnknown(formValues.foreignId) ??
+              readStringFromUnknown(formValues.serialNumber) ??
+              generateProvisioningUuid()
+          ),
+          updatedAt: now,
+        });
       } else {
         const thingName = generateProvisioningUuid();
-        const provisioningData = await deviceInventoryApi.iot.provisionThing({
-          deviceId: thingName,
-          deviceType: "SINGLE",
-          thingName,
-          attributes: {
-            displayName: sanitizeAwsIotAttributeValue(name),
-            project: sanitizeAwsIotAttributeValue(project),
-            connectionType: sanitizeAwsIotAttributeValue(connectionType),
-          },
+        const catalogMetadata = buildCatalogMetadata(formValues, thingName);
+        const provisioningConfig = parseProvisioningConfig(catalogMetadata, {
+          name,
+          project,
+          connectionType,
+          fallbackThingName: thingName,
         });
+        const provisioningData = await deviceInventoryApi.iot.provisionThing(provisioningConfig);
 
         const thingId =
           provisioningData.device?.thingId ??
@@ -300,7 +573,7 @@ export default function DeviceManagementPage() {
           ...formValues,
           foreignId: thingId,
           status: "active",
-          metadata: buildMergedMetadata(formValues.metadata, provisioningData, thingId),
+          metadata: buildMergedMetadata(catalogMetadata, provisioningData, thingId),
           createdAt: now,
           updatedAt: now,
         });
@@ -342,7 +615,52 @@ export default function DeviceManagementPage() {
   };
 
   const handleValueChange = (key: string, value: PrimitiveValue): void => {
-    setFormValues(prev => ({ ...prev, [key]: value }));
+    setFormValues((prev) => {
+      const next = { ...prev, [key]: value };
+
+      if (key === "vendorName") {
+        next.itemTypeName = "";
+        next.communicationPolicy = "";
+        next.itemName = "";
+        next.itemCode = "";
+      }
+
+      if (key === "itemTypeName") {
+        next.communicationPolicy = "";
+        const matchingItem = itemRows.find((row) => {
+          const rowType = String(row.itemType ?? "").trim().toLowerCase();
+          const rowVendor = String(row.vendor ?? "").trim().toLowerCase();
+          const selectedType = String(value ?? "").trim().toLowerCase();
+          const selectedVendor = String(next.vendorName ?? "").trim().toLowerCase();
+          return rowType === selectedType && (!selectedVendor || rowVendor === selectedVendor);
+        });
+
+        if (matchingItem) {
+          next.itemName = String(matchingItem.name ?? "");
+          next.itemCode = String(matchingItem.itemCode ?? "");
+          if (!next.communicationPolicy && matchingItem.communicationPolicy) {
+            next.communicationPolicy = String(matchingItem.communicationPolicy);
+          }
+        }
+      }
+
+      if (key === "communicationPolicy" && !next.itemCode) {
+        const matchingItem = itemRows.find((row) => {
+          const rowType = String(row.itemType ?? "").trim().toLowerCase();
+          const rowPolicy = String(row.communicationPolicy ?? "").trim().toLowerCase();
+          const selectedType = String(next.itemTypeName ?? "").trim().toLowerCase();
+          const selectedPolicy = String(value ?? "").trim().toLowerCase();
+          return rowPolicy === selectedPolicy && (!selectedType || rowType === selectedType);
+        });
+
+        if (matchingItem) {
+          next.itemName = String(matchingItem.name ?? "");
+          next.itemCode = String(matchingItem.itemCode ?? "");
+        }
+      }
+
+      return next;
+    });
   };
 
   const hasActiveFilters: boolean =
@@ -643,6 +961,12 @@ export default function DeviceManagementPage() {
                   formSubtitle={editingId ? "Update the device details below." : "Enter the details for the new device"}
                   editing={!!editingId}
                   values={formValues}
+                  vendorOptions={vendorOptions}
+                  itemTypeOptions={itemTypeOptions}
+                  communicationPolicyOptions={communicationPolicyOptions}
+                  vendorsLoading={vendorsLoading}
+                  itemTypesLoading={itemTypesLoading}
+                  communicationPoliciesLoading={communicationPoliciesLoading}
                   onValueChange={handleValueChange}
                   onSubmit={handleSubmit}
                   onCancel={handleCancel}

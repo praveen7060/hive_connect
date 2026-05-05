@@ -6,6 +6,12 @@ interface DeviceFormProps {
   formSubtitle: string;
   editing: boolean;
   values: Record<string, any>;
+  vendorOptions: string[];
+  itemTypeOptions: string[];
+  communicationPolicyOptions: string[];
+  vendorsLoading?: boolean;
+  itemTypesLoading?: boolean;
+  communicationPoliciesLoading?: boolean;
   onValueChange: (key: string, value: any) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
@@ -18,6 +24,12 @@ export default function DeviceForm({
   formSubtitle,
   editing,
   values,
+  vendorOptions,
+  itemTypeOptions,
+  communicationPolicyOptions,
+  vendorsLoading = false,
+  itemTypesLoading = false,
+  communicationPoliciesLoading = false,
   onValueChange,
   onSubmit,
   onCancel,
@@ -92,7 +104,7 @@ export default function DeviceForm({
               type="text"
               value={values.foreignId || ""}
               onChange={(e) => onValueChange("foreignId", e.target.value)}
-              placeholder="Enter foreign ID"
+              placeholder="Optional external thing/device id"
               className="h-11 w-full rounded-[10px] border border-[#d7dde6] bg-white px-4 text-sm text-[#25334d] outline-none transition-colors focus:border-[#5ea2f2] focus:ring-2 focus:ring-[#5ea2f2]/10"
             />
           </label>
@@ -110,6 +122,63 @@ export default function DeviceForm({
               className="h-11 w-full rounded-[10px] border border-[#d7dde6] bg-white px-4 text-sm text-[#25334d] outline-none transition-colors focus:border-[#5ea2f2] focus:ring-2 focus:ring-[#5ea2f2]/10"
             />
           </label>
+        </div>
+
+        <div className="border-t border-[#dce2ea] pt-5 mt-5">
+          <h3 className="text-lg font-medium text-[#0f2554] mb-4">Catalog Binding</h3>
+
+          <div className="mb-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-[#334664]">Vendor</span>
+              <select
+                value={values.vendorName || ""}
+                onChange={(e) => onValueChange("vendorName", e.target.value)}
+                className="h-11 w-full rounded-[10px] border border-[#d7dde6] bg-white px-4 text-sm text-[#25334d] outline-none transition-colors focus:border-[#5ea2f2] focus:ring-2 focus:ring-[#5ea2f2]/10 appearance-none"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a98ae' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center", backgroundSize: "16px" }}
+              >
+                <option value="">{vendorsLoading ? "Loading vendors..." : "Select vendor"}</option>
+                {vendorOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mb-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-[#334664]">Item Type</span>
+              <select
+                value={values.itemTypeName || ""}
+                onChange={(e) => onValueChange("itemTypeName", e.target.value)}
+                className="h-11 w-full rounded-[10px] border border-[#d7dde6] bg-white px-4 text-sm text-[#25334d] outline-none transition-colors focus:border-[#5ea2f2] focus:ring-2 focus:ring-[#5ea2f2]/10 appearance-none"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a98ae' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center", backgroundSize: "16px" }}
+              >
+                <option value="">{itemTypesLoading ? "Loading item types..." : "Select item type"}</option>
+                {itemTypeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-[#334664]">Communication Policy</span>
+              <select
+                value={values.communicationPolicy || ""}
+                onChange={(e) => onValueChange("communicationPolicy", e.target.value)}
+                className="h-11 w-full rounded-[10px] border border-[#d7dde6] bg-white px-4 text-sm text-[#25334d] outline-none transition-colors focus:border-[#5ea2f2] focus:ring-2 focus:ring-[#5ea2f2]/10 appearance-none"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a98ae' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center", backgroundSize: "16px" }}
+              >
+                <option value="">
+                  {communicationPoliciesLoading ? "Loading policies..." : "Select communication policy"}
+                </option>
+                {communicationPolicyOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
 
         {/* Serial Number */}

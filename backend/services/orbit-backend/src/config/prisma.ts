@@ -7,14 +7,14 @@ const createPrismaClient = () =>
   }).$extends({
     query: {
       $allModels: {
-        async create({ args, query }) {
+        async create({ args, query }: { args: any; query: (args: any) => Promise<unknown> }) {
           if (args.data && typeof args.data === "object") {
             const data = args.data as Record<string, unknown>;
             if (!data.id) data.id = randomUUID();
           }
           return query(args);
         },
-        async createMany({ args, query }) {
+        async createMany({ args, query }: { args: any; query: (args: any) => Promise<unknown> }) {
           if (args.data) {
             const rows = Array.isArray(args.data) ? args.data : [args.data];
             for (const row of rows) {
@@ -26,7 +26,7 @@ const createPrismaClient = () =>
           }
           return query(args);
         },
-        async upsert({ args, query }) {
+        async upsert({ args, query }: { args: any; query: (args: any) => Promise<unknown> }) {
           if (args.create && typeof args.create === "object") {
             const data = args.create as Record<string, unknown>;
             if (!data.id) data.id = randomUUID();

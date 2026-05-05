@@ -27,7 +27,7 @@ export interface CrudApi<T, CreateInput = Partial<T>, UpdateInput = Partial<T>> 
   remove: (id: EntityId) => Promise<void>;
 }
 
-export type DeviceType = "SINGLE" | "SWITCH_4CH" | "DONGLE_2CH" | "SMART_METER";
+export type DeviceType = string;
 
 export interface IotProvisionRequest {
   deviceId: string;

@@ -10,8 +10,6 @@ import {
 
 const router = Router()
 
-const VALID_DEVICE_TYPES = new Set(['SINGLE', 'SWITCH_4CH', 'DONGLE_2CH', 'SMART_METER'])
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -53,7 +51,7 @@ router.post('/devices/onboard', async (req, res) => {
   try {
     const body = req.body || {}
     const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : ''
-    const deviceType = typeof body.deviceType === 'string' ? body.deviceType.trim() : 'SINGLE'
+    const deviceType = typeof body.deviceType === 'string' ? body.deviceType.trim() : 'GENERIC'
     const thingNameInput = typeof body.thingName === 'string' ? body.thingName.trim() : ''
     const policyName = typeof body.policyName === 'string' ? body.policyName.trim() : undefined
     const s3Prefix = typeof body.s3Prefix === 'string' ? body.s3Prefix.trim() : undefined
@@ -64,9 +62,9 @@ router.post('/devices/onboard', async (req, res) => {
       return res.status(400).json({ error: 'deviceId is required' })
     }
 
-    if (!VALID_DEVICE_TYPES.has(deviceType)) {
+    if (!deviceType) {
       return res.status(400).json({
-        error: 'Invalid deviceType. Must be SINGLE, SWITCH_4CH, DONGLE_2CH, or SMART_METER'
+        error: 'deviceType must be a non-empty string'
       })
     }
 
@@ -295,7 +293,7 @@ router.post('/devices/:deviceId/control', async (req, res) => {
     const body = req.body || {}
     const status = typeof body.status === 'string' ? body.status.trim() : ''
 
-    if (!status) {
+    if (!status && !isPlainObject(body.payload)) {
       return res.status(400).json({ error: 'status is required' })
     }
 
@@ -312,33 +310,45 @@ router.post('/devices/:deviceId/control', async (req, res) => {
       return res.status(409).json({ error: 'Device does not have a thingId yet' })
     }
 
-    const payload: Record<string, unknown> = {
-      deviceid: device.deviceId,
-      status
-    }
+    const payload: Record<string, unknown> = isPlainObject(body.payload)
+      ? {
+          ...body.payload,
+          deviceid:
+            typeof body.payload.deviceid === 'string' && body.payload.deviceid.trim()
+              ? body.payload.deviceid
+              : device.deviceId
+        }
+      : {
+          deviceid: device.deviceId,
+          status
+        }
 
-    if (device.deviceType === 'SWITCH_4CH') {
-      if (body.switchNo === undefined) {
-        return res.status(400).json({ error: 'switchNo required for SWITCH_4CH' })
+    if (!isPlainObject(body.payload)) {
+      if (device.deviceType === 'SWITCH_4CH' && body.switchNo !== undefined) {
+        payload.switch_no = normalizeSwitchNo(body.switchNo)
       }
-      payload.switch_no = normalizeSwitchNo(body.switchNo)
-    }
 
-    if (device.deviceType === 'DONGLE_2CH') {
-      const switchNoInput = body.switchNo ?? body.switch_no
-      if (switchNoInput === undefined || body.channel === undefined) {
-        return res.status(400).json({ error: 'channel and switchNo are required for DONGLE_2CH' })
+      if (device.deviceType === 'DONGLE_2CH') {
+        const switchNoInput = body.switchNo ?? body.switch_no
+        if (switchNoInput !== undefined) {
+          payload.switch_no = String(switchNoInput)
+        }
+        if (body.channel !== undefined) {
+          payload.channel = String(body.channel)
+        }
       }
-      payload.channel = String(body.channel)
-      payload.switch_no = String(switchNoInput)
     }
 
-    await publishToDevice(device.thingId, 'control', payload)
+    const subTopic = typeof body.subTopic === 'string' && body.subTopic.trim()
+      ? body.subTopic.trim()
+      : 'control'
+
+    await publishToDevice(device.thingId, subTopic, payload)
 
     return res.json({
       success: true,
       thingId: device.thingId,
-      topic: `mqtt/device/${device.thingId}/control`
+      topic: `mqtt/device/${device.thingId}/${subTopic}`
     })
   } catch (error) {
     console.error('Internal control failed:', error)

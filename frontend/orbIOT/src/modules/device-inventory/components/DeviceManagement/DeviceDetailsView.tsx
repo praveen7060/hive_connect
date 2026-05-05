@@ -61,6 +61,14 @@ interface IotMetadata {
   documents?: IotDocuments | null;
 }
 
+interface CatalogMetadata {
+  vendorName?: string | null;
+  itemType?: string | null;
+  itemName?: string | null;
+  itemCode?: string | null;
+  communicationPolicy?: string | null;
+}
+
 interface MqttDocumentBundle {
   certificate: string | null;
   privateKey: string | null;
@@ -74,6 +82,17 @@ function parseIotMetadata(value: PrimitiveValue | undefined): IotMetadata | null
     const parsed = JSON.parse(value) as { iot?: IotMetadata };
     if (!parsed?.iot || typeof parsed.iot !== "object") return null;
     return parsed.iot;
+  } catch {
+    return null;
+  }
+}
+
+function parseCatalogMetadata(value: PrimitiveValue | undefined): CatalogMetadata | null {
+  if (!value || typeof value !== "string") return null;
+  try {
+    const parsed = JSON.parse(value) as { catalog?: CatalogMetadata };
+    if (!parsed?.catalog || typeof parsed.catalog !== "object") return null;
+    return parsed.catalog;
   } catch {
     return null;
   }
@@ -284,9 +303,16 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
   const serial = text(device.serialNumber, "-");
   const status = text(device.status, "provisioning").toUpperCase();
   const connection = text(device.connectionType, "MQTT").toUpperCase();
-  const itemName = text(device.itemTypeName ?? device.itemType, "Turbo 1 SC");
-  const vendorName = text(device.vendorName, "IOTIQ Connect");
-  const communication = text(device.communicationPolicy, "Turbo 1 SC_policy");
+  const catalogMeta = useMemo(() => parseCatalogMetadata(device.metadata), [device.metadata]);
+  const itemName = text(
+    (catalogMeta?.itemName ?? catalogMeta?.itemType ?? device.itemTypeName ?? device.itemType) as PrimitiveValue,
+    "Turbo 1 SC"
+  );
+  const vendorName = text((catalogMeta?.vendorName ?? device.vendorName) as PrimitiveValue, "IOTIQ Connect");
+  const communication = text(
+    (catalogMeta?.communicationPolicy ?? device.communicationPolicy) as PrimitiveValue,
+    "Turbo 1 SC_policy"
+  );
   const project = text(device.project, "5129dd20-90e5-4a32-8e99-7fb97a634c7b");
 
   const iotMeta = useMemo(() => parseIotMetadata(device.metadata), [device.metadata]);

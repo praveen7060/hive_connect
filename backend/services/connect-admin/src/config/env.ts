@@ -39,7 +39,7 @@ const AWS_PROVISIONING = {
 }
 
 export const ENV = {
-  PORT: process.env.PORT || 4000,
+  PORT: process.env.PORT || 5000,
   DB: process.env.DATABASE_URL!,
   IOT_ENDPOINTS,
   IOT_ENDPOINT: IOT_ENDPOINTS[0],

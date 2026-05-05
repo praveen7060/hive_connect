@@ -1,4 +1,4 @@
-const baseUrl = (process.env.CONNECT_ADMIN_BASE_URL ?? "http://localhost:4000").replace(/\/+$/, "");
+const baseUrl = (process.env.CONNECT_ADMIN_BASE_URL ?? "http://localhost:5000").replace(/\/+$/, "");
 const DEFAULT_CONNECT_ADMIN_TIMEOUT_MS = 15000;
 const connectAdminTimeoutMs = (() => {
   const parsed = Number(process.env.CONNECT_ADMIN_TIMEOUT_MS ?? DEFAULT_CONNECT_ADMIN_TIMEOUT_MS);
@@ -31,7 +31,7 @@ export class ConnectAdminHttpError extends Error {
 
 type ProvisionRequest = {
   deviceId: string;
-  deviceType?: "SINGLE" | "SWITCH_4CH" | "DONGLE_2CH" | "SMART_METER";
+  deviceType?: string;
   thingName?: string;
   policyName?: string;
   attributes?: Record<string, string>;

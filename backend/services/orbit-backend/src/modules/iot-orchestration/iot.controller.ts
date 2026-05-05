@@ -1,6 +1,9 @@
 import { randomUUID } from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import {
+  catalogExecuteCommandSchema,
+  catalogProvisionSchema,
+  catalogSubscriptionSchema,
   controlDeviceSchema,
   deviceDocumentsSchema,
   provisionThingSchema,
@@ -77,6 +80,50 @@ export const iotController = {
     try {
       const payload = subscribeTopicsSchema.parse(req.body);
       const data = await iotService.subscribeTopics(payload, getCorrelationId(req));
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getCatalogProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await iotService.getCatalogProfile(req.params.id);
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async provisionCatalogDevice(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = catalogProvisionSchema.parse(req.body ?? {});
+      const data = await iotService.provisionCatalogDevice(req.params.id, payload, getCorrelationId(req));
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async executeCatalogCommand(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = catalogExecuteCommandSchema.parse(req.body ?? {});
+      const data = await iotService.executeCatalogCommand(
+        req.params.id,
+        req.params.commandKey,
+        payload,
+        getCorrelationId(req)
+      );
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async subscribeCatalogDevice(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = catalogSubscriptionSchema.parse(req.body);
+      const data = await iotService.subscribeCatalogDevice(req.params.id, payload, getCorrelationId(req));
       res.json(data);
     } catch (error) {
       next(error);
