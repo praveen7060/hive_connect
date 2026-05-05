@@ -4,6 +4,7 @@ import AppLayout from "../layouts/AppLayout";
 import { DEFAULT_ROUTE, NAV_ITEMS, type AppNavItem } from "./navigation";
 
 const DeviceInventoryPage = lazy(() => import("../../modules/device-inventory/page"));
+const ApplicationConsolePage = lazy(() => import("../../modules/application-console/page"));
 
 function FeaturePage({ item }: { item: AppNavItem }) {
   const Icon = item.icon;
@@ -104,6 +105,16 @@ export default function AppRouter() {
                     }
                   >
                     <DeviceInventoryPage />
+                  </Suspense>
+                ) : item.id === "applications" ? (
+                  <Suspense
+                    fallback={
+                      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                        <p className="expo-body text-slate-600">Loading application console...</p>
+                      </section>
+                    }
+                  >
+                    <ApplicationConsolePage />
                   </Suspense>
                 ) : (
                   <FeaturePage item={item} />

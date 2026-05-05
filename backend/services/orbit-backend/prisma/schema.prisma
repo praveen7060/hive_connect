@@ -141,4 +141,84 @@ model Device {
   status           String   @default("provisioning")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  enrollmentQrs    DeviceEnrollmentQr[]
+  appClaims        DeviceAppClaim[]
+}
+
+model ConsoleApplication {
+  id               String   @id @default(uuid())
+  name             String
+  domain           String
+  applicationCode  String
+  project          String?
+  platform         String?
+  applicationType  String?
+  description      String?
+  image            String?
+  icon             String?
+  bundleVersion    String?
+  authType         String?
+  sdkUrl           String?
+  bundleUrl        String?
+  secretKey        String?
+  accessKey        String?
+  clientId         String?
+  headerKey        String?
+  appKey           String   @unique
+  status           String   @default("active")
+  metadata         String?
+  lastClaimedAt    DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  enrollmentQrs    DeviceEnrollmentQr[] @relation("EnrollmentIssuer")
+  claims           DeviceAppClaim[]
+
+  @@unique([domain, applicationCode])
+}
+
+model DeviceEnrollmentQr {
+  id               String   @id @default(uuid())
+  deviceId         String
+  issuedForAppId   String?
+  token            String   @unique
+  qrType           String   @default("device_claim")
+  status           String   @default("pending")
+  payload          String?
+  expiresAt        DateTime
+  claimedAt        DateTime?
+  claimedByAppId   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  device           Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  issuedForApp     ConsoleApplication? @relation("EnrollmentIssuer", fields: [issuedForAppId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId])
+  @@index([issuedForAppId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model DeviceAppClaim {
+  id               String   @id @default(uuid())
+  deviceId         String
+  appId            String
+  enrollmentQrId   String?
+  installationId   String?
+  alias            String?
+  status           String   @default("active")
+  metadata         String?
+  claimedAt        DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  device           Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  app              ConsoleApplication @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, appId])
+  @@index([deviceId])
+  @@index([appId])
+  @@index([installationId])
 }

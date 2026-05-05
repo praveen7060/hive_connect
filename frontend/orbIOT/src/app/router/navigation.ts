@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  AppWindow,
   BarChart2,
   Bell,
   HardDrive,
@@ -100,6 +101,18 @@ export const NAV_ITEMS: AppNavItem[] = [
       { label: "Registered", value: "3,906", helper: "Total devices cataloged" },
       { label: "Dormant", value: "112", helper: "No heartbeat in 24 hours" },
       { label: "Warehouses", value: "14", helper: "Locations currently mapped" },
+    ],
+  },
+  {
+    id: "applications",
+    label: "Applications",
+    path: "/applications",
+    description: "Manage registered mobile and web applications that can claim devices, scan enrollment QR codes, and issue commands.",
+    icon: AppWindow,
+    stats: [
+      { label: "Registered Apps", value: "12", helper: "Configured across environments" },
+      { label: "Claim Sessions", value: "38", helper: "Recent QR-driven enrollments" },
+      { label: "Trusted Clients", value: "9", helper: "Active application keys in use" },
     ],
   },
   {

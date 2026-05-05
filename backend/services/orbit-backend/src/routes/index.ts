@@ -7,6 +7,7 @@ import messageRoutes from "../modules/message/message.routes";
 import itemRoutes from "../modules/item/item.routes";
 import deviceRoutes from "../modules/device-inventory/device.routes";
 import iotRoutes from "../modules/iot-orchestration/iot.routes";
+import applicationConsoleRoutes from "../modules/application-console/applicationConsole.routes";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/messages", messageRoutes);
 router.use("/items", itemRoutes);
 router.use("/devices", deviceRoutes);
 router.use("/iot", iotRoutes);
+router.use("/application-console", applicationConsoleRoutes);
 
 export default router;

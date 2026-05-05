@@ -223,6 +223,7 @@ export const deviceInventoryApi = {
   messages: createCrudApi<any>("messages"),
   items: createCrudApi<any>("items"),
   devices: createCrudApi<any>("devices"),
+  applicationConsoleApps: createCrudApi<any>("application-console/apps"),
   iot: {
     provisionThing: (payload: IotProvisionRequest) =>
       apiRequest<IotProvisionResponse>("/iot/things/provision", "POST", payload),
@@ -234,6 +235,14 @@ export const deviceInventoryApi = {
         "POST",
         payload,
         MQTT_DOCS_TIMEOUT_MS
+      ),
+  },
+  applicationConsole: {
+    createEnrollmentQr: (deviceId: string | number, payload?: Record<string, unknown>) =>
+      apiRequest<any>(
+        `/application-console/devices/${encodeURIComponent(String(deviceId))}/enrollment-qrs`,
+        "POST",
+        payload ?? {}
       ),
   },
 };
