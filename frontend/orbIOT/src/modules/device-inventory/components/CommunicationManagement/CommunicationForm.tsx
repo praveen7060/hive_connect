@@ -22,12 +22,14 @@ import {
 } from "lucide-react";
 
 export const communicationFormFields: FormFieldConfig[] = [
-  { key: "name", label: "Name", type: "text", required: true, placeholder: "Enter policy name" },
+  { key: "name", label: "Communication Policy Name", type: "text", required: true, placeholder: "Enter policy name" },
   { key: "groupName", label: "Group Name", type: "text", required: true, placeholder: "Enter group name" },
   { key: "itemType", label: "Item Type", type: "select", required: true, options: [] },
   { key: "protocol", label: "Protocol", type: "select", required: true, options: ["MQTT", "HTTP", "CoAP"] },
+  { key: "version", label: "Version", type: "text", placeholder: "0.01" },
   { key: "messageFormat", label: "Message Format", type: "select", options: ["JSON", "XML", "PROTOBUF"] },
-  { key: "centric", label: "Centric", type: "select", options: ["TOPIC", "PAYLOAD"] },
+  { key: "centric", label: "Centric", type: "select", options: ["TOPIC", "PAYLOAD", "HYBRID"] },
+  { key: "communicationMethod", label: "Communication Method", type: "select", options: ["MQTT", "HTTP", "PUBLISH", "SUBSCRIBE"] },
   { key: "messageStructure", label: "Message Structure", type: "text", placeholder: "{}" },
   { key: "confirmationMessageStructure", label: "Confirmation Message Structure", type: "text", placeholder: "{}" },
   { key: "icon", label: "Icon", type: "text" },
@@ -271,14 +273,14 @@ export default function CommunicationForm({
             {/* Name Field */}
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
-                Name <span className="text-red-500">*</span>
+                Communication Policy Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={values.name || ""}
                 onChange={(e) => onValueChange("name", e.target.value)}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                placeholder="Enter policy name"
+                placeholder="Enter communication policy name"
                 required
               />
             </div>
@@ -437,40 +439,72 @@ export default function CommunicationForm({
 
             {/* Message Format - shown after protocol */}
             {showMessageFormat && (
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
-                  Message Format <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={values.messageFormat || ""}
-                  onChange={(e) => handleMessageFormatChange(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                  required
-                >
-                  <option value="">Select Message Format</option>
-                  <option value="JSON">JSON</option>
-                  <option value="ARRAY">ARRAY</option>
-                </select>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
+                    Version
+                  </label>
+                  <input
+                    type="text"
+                    value={values.version || ""}
+                    onChange={(e) => onValueChange("version", e.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                    placeholder="0.01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
+                    Message Format <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={values.messageFormat || ""}
+                    onChange={(e) => handleMessageFormatChange(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                    required
+                  >
+                    <option value="">Select Message Format</option>
+                    <option value="JSON">JSON</option>
+                    <option value="ARRAY">ARRAY</option>
+                  </select>
+                </div>
               </div>
             )}
 
             {/* Centric - shown after message format */}
             {showCentric && (
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
-                  Centric <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={values.centric || ""}
-                  onChange={(e) => handleCentricChange(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                  required
-                >
-                  <option value="">Select Centric</option>
-                  <option value="TOPIC">TOPIC</option>
-                  <option value="PAYLOAD">PAYLOAD</option>
-                  <option value="HYBRID">HYBRID</option>
-                </select>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
+                    Centric <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={values.centric || ""}
+                    onChange={(e) => handleCentricChange(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                    required
+                  >
+                    <option value="">Select Centric</option>
+                    <option value="TOPIC">TOPIC</option>
+                    <option value="PAYLOAD">PAYLOAD</option>
+                    <option value="HYBRID">HYBRID</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
+                    Communication Method
+                  </label>
+                  <select
+                    value={values.communicationMethod || ""}
+                    onChange={(e) => onValueChange("communicationMethod", e.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  >
+                    <option value="">Select method</option>
+                    <option value="MQTT">MQTT</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="PUBLISH">PUBLISH</option>
+                    <option value="SUBSCRIBE">SUBSCRIBE</option>
+                  </select>
+                </div>
               </div>
             )}
 
@@ -486,7 +520,7 @@ export default function CommunicationForm({
                     value={values.messageStructure || ""}
                     onChange={(e) => onValueChange("messageStructure", e.target.value)}
                     className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-mono text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                    placeholder="{}"
+                    placeholder='{"topicTemplate":"mqtt/device/@{deviceId}/update"}'
                   />
                 </div>
 
@@ -524,7 +558,7 @@ export default function CommunicationForm({
                   value={values.confirmationMessageStructure || ""}
                   onChange={(e) => onValueChange("confirmationMessageStructure", e.target.value)}
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-mono text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                  placeholder="{}"
+                  placeholder='{"status":"ok"}'
                 />
               </div>
             )}

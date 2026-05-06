@@ -36,10 +36,10 @@ const MESSAGE_TYPE_OPTIONS = [
 export const messagingFormFields: FormFieldConfig[] = [
   { key: "itemType", label: "Item Type", type: "select", required: true, options: [] },
   { key: "communicationPolicy", label: "Communication Policy", type: "select", required: true, options: [] },
-  { key: "topic", label: "Topic", type: "text", required: true, placeholder: "e.g. mqtt/device" },
+  { key: "topic", label: "Topic", type: "text", required: true, placeholder: "e.g. mqtt/device/@{deviceId}/update" },
   { key: "messageType", label: "Message Type", type: "select", options: [...MESSAGE_TYPE_OPTIONS] },
-  { key: "commandType", label: "Command Type", type: "select", options: ["ON_OFF", "RESET", "CONFIG", "STATUS"] },
-  { key: "policyType", label: "Policy Type", type: "select", options: ["RESET", "DELTA", "FULL"] },
+  { key: "commandType", label: "Command Type", type: "select", options: ["PUBLISH", "SUBSCRIBE", "GET", "POST"] },
+  { key: "policyType", label: "Policy Type", type: "select", options: ["EXECUTE", "QUERY", "REGISTER", "BOOT", "SYNC", "OTA"] },
 ];
 
 interface MessagingFormProps extends ManagementFormProps {
@@ -188,7 +188,7 @@ export default function MessagingForm({
                 value={values.topic || ""}
                 required
                 onChange={(e) => onValueChange("topic", e.target.value)}
-                placeholder="e.g. mqtt/device"
+                placeholder="e.g. mqtt/device/@{deviceId}/update"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 placeholder:text-slate-400"
               />
             </label>
@@ -204,6 +204,21 @@ export default function MessagingForm({
                 className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-200"
               />
               <span className="text-[13px] font-medium text-slate-700">Is Topic Unique</span>
+            </label>
+          </div>
+
+          <div className="space-y-2 ml-6">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(values.isPayloadCentric)}
+                onChange={(e) => onValueChange("isPayloadCentric", e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-200 mt-0.5"
+              />
+              <div>
+                <span className="text-[13px] font-medium text-slate-700">Is Payload Centric Topic</span>
+                <p className="text-[11px] text-slate-500 mt-0.5">Mark when payload shape is the primary routing contract.</p>
+              </div>
             </label>
           </div>
 
@@ -275,8 +290,8 @@ export default function MessagingForm({
                 style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center", backgroundSize: "1rem" }}
               >
                 <option value="">Select command type</option>
+                <option value="PUBLISH">PUBLISH</option>
                 <option value="SUBSCRIBE">SUBSCRIBE</option>
-                <option value="POLISH">POLISH</option>
                 <option value="POST">POST</option>
                 <option value="GET">GET</option>
               </select>
@@ -297,32 +312,51 @@ export default function MessagingForm({
                 style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 1rem center", backgroundSize: "1rem" }}
               >
                 <option value="">Select policy type</option>
-                <option value="RESET">RESET</option>
+                <option value="EXECUTE">EXECUTE</option>
+                <option value="QUERY">QUERY</option>
                 <option value="REGISTER">REGISTER</option>
                 <option value="BOOT">BOOT</option>
                 <option value="SYNC">SYNC</option>
-                <option value="QUERY">QUERY</option>
-                <option value="EXECUTE">EXECUTE</option>
-                <option value="BLUETOOTH">BLUETOOTH</option>
                 <option value="OTA">OTA</option>
               </select>
             </label>
           </div>
 
-          {/* Payload Format with Error */}
+          {/* Request Payload Format */}
           <div className="space-y-1">
             <label className="flex flex-col gap-1.5">
               <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
-                Payload Format
+                Request Payload Format
               </span>
               <textarea
-                value={String(values.payloadFormat || "")}
-                onChange={(e) => onValueChange("payloadFormat", e.target.value)}
-                rows={3}
+                value={String(values.requestPayloadFormat || values.payloadFormat || "")}
+                onChange={(e) => {
+                  onValueChange("requestPayloadFormat", e.target.value);
+                  onValueChange("payloadFormat", e.target.value);
+                }}
+                rows={6}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-mono text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                placeholder={'{\n  "deviceid": "@{device.foreignId}",\n  "status": "${status}"\n}'}
               />
             </label>
-            <p className="text-[11px] text-rose-500">Invalid JSON structure: Unexpected end of JSON input</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+                Response Payload Format
+              </span>
+              <textarea
+                value={String(values.responsePayloadFormat || values.confirmationPayloadFormat || "")}
+                onChange={(e) => {
+                  onValueChange("responsePayloadFormat", e.target.value);
+                  onValueChange("confirmationPayloadFormat", e.target.value);
+                }}
+                rows={4}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-mono text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                placeholder={'{\n  "reply": "${reply}"\n}'}
+              />
+            </label>
           </div>
 
          

@@ -8,12 +8,18 @@ export const createMessageSchema = z.object({
   messageType: z.string().optional(),
   commandType: z.string().optional(),
   policyType: z.string().optional(),
+  communicationMethod: z.string().optional(),
+  topicUnique: z.boolean().optional(),
+  isPayloadCentric: z.boolean().optional(),
   retainMessages: z.boolean().optional(),
   loggedMessage: z.boolean().optional(),
   qos: z.number().int().optional(),
   pollingInterval: z.number().int().optional(),
+  requestPayloadFormat: z.string().optional(),
+  responsePayloadFormat: z.string().optional(),
   payloadFormat: z.string().optional(),
   confirmationPayloadFormat: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 export const updateMessageSchema = createMessageSchema.partial();

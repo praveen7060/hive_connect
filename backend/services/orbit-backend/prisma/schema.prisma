@@ -67,13 +67,18 @@ model Communication {
   groupName                    String
   itemType                     String
   protocol                     String
+  version                      String?
   messageFormat                String
+  communicationMethod          String?
   centric                      String
   messageStructure             String?
   confirmationMessageStructure String?
   icon                         String
   needFirmware                 Boolean  @default(false)
   needConfirmation             Boolean  @default(false)
+  format                       String?
+  transport                    String?
+  metadata                     String?
   image                        String?
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
@@ -88,12 +93,18 @@ model Message {
   messageType               String?
   commandType               String?
   policyType                String?
+  communicationMethod       String?
+  topicUnique               Boolean  @default(false)
+  isPayloadCentric          Boolean  @default(false)
   retainMessages            Boolean  @default(false)
   loggedMessage             Boolean  @default(false)
   qos                       Int?
   pollingInterval           Int?
+  requestPayloadFormat      String?
+  responsePayloadFormat     String?
   payloadFormat             String?
   confirmationPayloadFormat String?
+  notes                     String?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 }

@@ -54,7 +54,7 @@ interface BadgeProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FILTERS: FilterConfig[] = [
   { key: "protocol", label: "Protocol", options: ["MQTT", "HTTP", "CoAP"] },
-  { key: "centric", label: "Centric", options: ["PAYLOAD", "TOPIC"] },
+  { key: "centric", label: "Centric", options: ["PAYLOAD", "TOPIC", "HYBRID"] },
   { key: "messageFormat", label: "Message Format", options: ["JSON", "XML", "PROTOBUF"] },
 ];
 
@@ -62,11 +62,11 @@ const COLUMNS: ColumnConfig[] = [
   { key: "name", label: "Name" },
   { key: "groupName", label: "Group Name" },
   { key: "protocol", label: "Protocol" },
+  { key: "version", label: "Version" },
   { key: "centric", label: "Centric" },
-  { key: "messageFormat", label: "Message Format" },
-  { key: "icon", label: "Icon" },
+  { key: "itemType", label: "Item Type" },
+  { key: "needFirmware", label: "Firmware Controlled" },
   { key: "createdAt", label: "Created" },
-  { key: "updatedAt", label: "Updated" },
 ];
 
 const INITIAL_ROWS: CommunicationRow[] = [];
@@ -93,10 +93,14 @@ function buildDefaults(): Record<string, PrimitiveValue> {
     groupName: "",
     itemType: "",
     protocol: "",
+    version: "0.01",
     messageFormat: "",
+    communicationMethod: "MQTT",
     centric: "",
     messageStructure: "",
     confirmationMessageStructure: "",
+    format: "JSON",
+    transport: "MQTT",
     icon: "",
     needFirmware: false,
     needConfirmation: false,
@@ -172,7 +176,7 @@ export default function CommunicationManagementPage() {
     return rows.filter((row) => {
       const searchPass =
         !q ||
-        ["name", "groupName", "protocol", "centric", "messageFormat", "icon"].some((k) =>
+        ["name", "groupName", "protocol", "centric", "messageFormat", "version", "itemType"].some((k) =>
           String(row[k] ?? "").toLowerCase().includes(q)
         );
       const filterPass = FILTERS.every((f) => {
@@ -236,9 +240,11 @@ export default function CommunicationManagementPage() {
     const groupName = String(formValues.groupName ?? "").trim();
     const itemType = String(formValues.itemType ?? "").trim();
     const protocol = String(formValues.protocol ?? "").trim();
-    const messageFormat = String(formValues.messageFormat ?? "").trim();
-    const centric = String(formValues.centric ?? "").trim();
-    const icon = String(formValues.icon ?? "").trim();
+      const version = String(formValues.version ?? "").trim();
+      const messageFormat = String(formValues.messageFormat ?? "").trim();
+      const communicationMethod = String(formValues.communicationMethod ?? "").trim();
+      const centric = String(formValues.centric ?? "").trim();
+      const icon = String(formValues.icon ?? "").trim();
     if (!name || !groupName || !itemType || !protocol || !messageFormat || !centric || !icon) {
       return false;
     }
@@ -250,14 +256,18 @@ export default function CommunicationManagementPage() {
       name,
       groupName,
       itemType,
-      protocol,
-      messageFormat,
-      centric,
-      messageStructure: String(formValues.messageStructure ?? ""),
-      confirmationMessageStructure: String(formValues.confirmationMessageStructure ?? ""),
-      icon,
-      needFirmware: Boolean(formValues.needFirmware),
-      needConfirmation: Boolean(formValues.needConfirmation),
+        protocol,
+        version,
+        messageFormat,
+        communicationMethod,
+        centric,
+        messageStructure: String(formValues.messageStructure ?? ""),
+        confirmationMessageStructure: String(formValues.confirmationMessageStructure ?? ""),
+        format: String(formValues.format ?? messageFormat),
+        transport: String(formValues.transport ?? protocol),
+        icon,
+        needFirmware: Boolean(formValues.needFirmware),
+        needConfirmation: Boolean(formValues.needConfirmation),
     };
     const image =
       typeof formValues.image === "string"
@@ -419,9 +429,9 @@ export default function CommunicationManagementPage() {
             sub={`${rows.length} communication policies`}
           />
           <StatCard
-            label="Messaging Policies"
-            value={String(rows.length)}
-            sub="total active policies"
+            label="Group Profiles"
+            value={String(new Set(rows.map((row) => String(row.groupName ?? "").trim()).filter(Boolean)).size)}
+            sub="unique group mappings"
           />
           <StatCard
             label="MQTT Policies"

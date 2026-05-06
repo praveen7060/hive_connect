@@ -59,23 +59,22 @@ interface BadgeProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FILTERS: FilterConfig[] = [
-  { key: "messageType", label: "Message Type", options: ["ON_OFF", "COMMAND", "EVENT"] },
-  { key: "policyType", label: "Policy Type", options: ["RESET", "DELTA", "FULL"] },
+  { key: "messageType", label: "Message Type", options: ["UPDATE", "AUTHENTICATE", "CONNECTION", "STATUS", "CONFIGURATION", "QUERY"] },
+  { key: "commandType", label: "Command Type", options: ["PUBLISH", "SUBSCRIBE", "GET", "POST"] },
+  { key: "policyType", label: "Policy Type", options: ["EXECUTE", "QUERY", "REGISTER", "BOOT", "SYNC", "OTA"] },
 ];
 
 const COLUMNS: ColumnConfig[] = [
-  { key: "name", label: "Name" },
-  { key: "itemType", label: "Item Type" },
   { key: "topic", label: "Topic" },
   { key: "messageType", label: "Message Type" },
+  { key: "commandType", label: "Command Type" },
   { key: "policyType", label: "Policy Type" },
-  { key: "createdAt", label: "Created" },
-  { key: "updatedAt", label: "Updated" },
+  { key: "communicationPolicy", label: "Communication Policy" },
 ];
 
 const INITIAL_ROWS: MessageRow[] = [];
 
-const BADGE_KEYS = new Set(["messageType", "policyType"]);
+const BADGE_KEYS = new Set(["messageType", "commandType", "policyType"]);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(val: PrimitiveValue | undefined): string {
@@ -99,10 +98,15 @@ function buildDefaults(): Record<string, PrimitiveValue> {
     messageType: "",
     commandType: "",
     policyType: "",
+    communicationMethod: "",
     retainMessages: false,
     loggedMessage: false,
     topicUnique: false,
+    isPayloadCentric: false,
+    requestPayloadFormat: "",
+    responsePayloadFormat: "",
     payloadFormat: "",
+    confirmationPayloadFormat: "",
     qos: "",
     pollingInterval: "",
   };
@@ -111,11 +115,22 @@ function buildDefaults(): Record<string, PrimitiveValue> {
 // ─── Badge ────────────────────────────────────────────────────────────────────
 const BADGE_COLORS: Record<string, string> = {
   ON_OFF: "bg-sky-50 text-sky-700 border-sky-200",
+  UPDATE: "bg-sky-50 text-sky-700 border-sky-200",
   COMMAND: "bg-violet-50 text-violet-700 border-violet-200",
   EVENT: "bg-amber-50 text-amber-700 border-amber-200",
+  AUTHENTICATE: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  CONNECTION: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  STATUS: "bg-slate-100 text-slate-700 border-slate-200",
+  CONFIGURATION: "bg-orange-50 text-orange-700 border-orange-200",
+  QUERY: "bg-cyan-50 text-cyan-700 border-cyan-200",
+  PUBLISH: "bg-violet-50 text-violet-700 border-violet-200",
+  SUBSCRIBE: "bg-blue-50 text-blue-700 border-blue-200",
+  EXECUTE: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  REGISTER: "bg-amber-50 text-amber-700 border-amber-200",
+  BOOT: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
+  SYNC: "bg-blue-50 text-blue-700 border-blue-200",
+  OTA: "bg-rose-50 text-rose-700 border-rose-200",
   RESET: "bg-rose-50 text-rose-700 border-rose-200",
-  DELTA: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  FULL: "bg-blue-50 text-blue-700 border-blue-200",
 };
 
 function Badge({ value }: BadgeProps) {
@@ -180,7 +195,7 @@ export default function MessagingManagementPage() {
     return rows.filter((row) => {
       const searchPass =
         !q ||
-        ["name", "itemType", "topic", "messageType", "policyType"].some((k) =>
+        ["name", "itemType", "topic", "messageType", "commandType", "policyType", "communicationPolicy"].some((k) =>
           String(row[k] ?? "").toLowerCase().includes(q)
         );
       const filterPass = FILTERS.every((f) => {
@@ -191,7 +206,7 @@ export default function MessagingManagementPage() {
     });
   }, [filters, rows, searchTerm]);
 
-  const commandCount = rows.filter((r) => r.messageType === "COMMAND").length;
+  const commandCount = rows.filter((r) => String(r.commandType ?? "").toUpperCase() === "PUBLISH").length;
   const retainedCount = rows.filter((r) => Boolean(r.retainMessages)).length;
   const loggedCount = rows.filter((r) => Boolean(r.loggedMessage)).length;
   const itemTypeOptions = useMemo<string[]>(() => {
@@ -267,10 +282,15 @@ export default function MessagingManagementPage() {
       messageType: row.messageType || "",
       commandType: row.commandType || "",
       policyType: row.policyType || "",
+      communicationMethod: row.communicationMethod || "",
       retainMessages: Boolean(row.retainMessages),
       loggedMessage: Boolean(row.loggedMessage),
       topicUnique: Boolean(row.topicUnique),
+      isPayloadCentric: Boolean(row.isPayloadCentric),
+      requestPayloadFormat: String(row.requestPayloadFormat || row.payloadFormat || ""),
+      responsePayloadFormat: String(row.responsePayloadFormat || row.confirmationPayloadFormat || ""),
       payloadFormat: String(row.payloadFormat || ""),
+      confirmationPayloadFormat: String(row.confirmationPayloadFormat || ""),
       qos: Number(row.qos || 0) || "",
       pollingInterval: Number(row.pollingInterval || 0) || "",
     });
@@ -310,10 +330,15 @@ export default function MessagingManagementPage() {
       messageType,
       commandType: formValues.commandType,
       policyType,
+      communicationMethod: String(formValues.commandType ?? ""),
       retainMessages: Boolean(formValues.retainMessages),
       loggedMessage: Boolean(formValues.loggedMessage),
       topicUnique: Boolean(formValues.topicUnique),
-      payloadFormat: String(formValues.payloadFormat ?? ""),
+      isPayloadCentric: Boolean(formValues.isPayloadCentric),
+      requestPayloadFormat: String(formValues.requestPayloadFormat ?? formValues.payloadFormat ?? ""),
+      responsePayloadFormat: String(formValues.responsePayloadFormat ?? formValues.confirmationPayloadFormat ?? ""),
+      payloadFormat: String(formValues.requestPayloadFormat ?? formValues.payloadFormat ?? ""),
+      confirmationPayloadFormat: String(formValues.responsePayloadFormat ?? formValues.confirmationPayloadFormat ?? ""),
       qos: Number(formValues.qos ?? 0) || 0,
       pollingInterval: Number(formValues.pollingInterval ?? 0) || 0,
     };
@@ -463,9 +488,9 @@ export default function MessagingManagementPage() {
           sub="all messaging policies"
         />
         <StatCard
-          label="Command Policies"
+          label="Publish Topics"
           value={String(commandCount)}
-          sub="command message type"
+          sub="publish-to-device topics"
         />
         <StatCard
           label="Retained"

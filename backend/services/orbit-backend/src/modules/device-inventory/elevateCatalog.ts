@@ -18,20 +18,33 @@ type ElevateFamilyTemplate = {
   itemCode: string;
   communicationPolicy: string;
   communicationDescription: string;
+  communicationVersion: string;
   componentCount: number;
   channels?: string;
   parameters: ElevateParameterSeed[];
   commandMessages: Array<{
     name: string;
+    messageType: string;
     commandType: string;
+    policyType: string;
+    communicationMethod: string;
     topic: string;
-    payloadFormat: string;
+    requestPayloadFormat: string;
+    responsePayloadFormat?: string;
+    topicUnique?: boolean;
+    isPayloadCentric?: boolean;
   }>;
   telemetryMessages: Array<{
     name: string;
     messageType: string;
+    commandType?: string;
+    policyType: string;
+    communicationMethod: string;
     topic: string;
-    payloadFormat?: string;
+    requestPayloadFormat?: string;
+    responsePayloadFormat?: string;
+    topicUnique?: boolean;
+    isPayloadCentric?: boolean;
   }>;
   catalog: Record<string, unknown>;
 };
@@ -55,6 +68,7 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     itemCode: "ELEVATE-IOTIQ4SC",
     communicationPolicy: "ELEVATE_MQTT_SWITCH_4CH",
     communicationDescription: "MQTT control and telemetry policy for ELEVATE IOTIQ 4 switch controllers.",
+    communicationVersion: "0.02",
     componentCount: 4,
     channels: "4S0F",
     parameters: [
@@ -68,43 +82,106 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     commandMessages: [
       {
         name: "Turn On",
+        messageType: "UPDATE",
         commandType: "turn_on",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
         topic: "mqtt/device/{{thingName}}/control",
-        payloadFormat: JSON.stringify({
-          command: {
-            subTopic: "control",
-            payloadTemplate: {
-              deviceid: "{{connectAdminDeviceId}}",
-              switch_no: "{{params.switchNo}}",
-              status: "on",
-            },
-          },
-        }),
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          switch_no: "{{params.switchNo}}",
+          status: "on",
+        }, null, 2),
+        topicUnique: true,
       },
       {
         name: "Turn Off",
+        messageType: "UPDATE",
         commandType: "turn_off",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
         topic: "mqtt/device/{{thingName}}/control",
-        payloadFormat: JSON.stringify({
-          command: {
-            subTopic: "control",
-            payloadTemplate: {
-              deviceid: "{{connectAdminDeviceId}}",
-              switch_no: "{{params.switchNo}}",
-              status: "off",
-            },
-          },
-        }),
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          switch_no: "{{params.switchNo}}",
+          status: "off",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "Settings",
+        messageType: "CONFIGURATION",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/setting",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          switch_no: "{{params.switchNo}}",
+          on_time: "{{params.onTime}}",
+          off_time: "{{params.offTime}}",
+          childlock: "{{params.childlock}}",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "Alive Request",
+        messageType: "AUTHENTICATE",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/alive",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "OTA Initialize",
+        messageType: "STATUS",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/ota/intialize",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          url: "{{params.url}}",
+          ota_version: "{{params.otaVersion}}",
+        }, null, 2),
+        topicUnique: true,
       },
     ],
     telemetryMessages: [
       {
         name: "Switch Telemetry",
-        messageType: "telemetry",
+        messageType: "UPDATE",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
         topic: MQTT_TOPIC_TEMPLATE,
-        payloadFormat: JSON.stringify({
+        requestPayloadFormat: JSON.stringify({
           expected: ["deviceid", "switch_no", "status", "firmware_version"],
-        }),
+        }, null, 2),
+        topicUnique: false,
+      },
+      {
+        name: "Alive Reply",
+        messageType: "CONNECTION",
+        policyType: "QUERY",
+        communicationMethod: "PUBLISH",
+        topic: "$aws/things/+/alive_reply",
+        requestPayloadFormat: JSON.stringify({
+          expected: ["deviceid", "ssid", "ipaddress", "macaddress", "firmware_version"],
+        }, null, 2),
+      },
+      {
+        name: "OTA Validate",
+        messageType: "STATUS",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
+        topic: "$aws/things/+/ota/validate",
+        requestPayloadFormat: JSON.stringify({
+          expected: ["deviceid", "transactionId", "secrets", "firmware_version", "reply"],
+        }, null, 2),
       },
     ],
     catalog: {
@@ -141,6 +218,7 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     itemCode: "ELEVATE-IOTIQDC2",
     communicationPolicy: "ELEVATE_MQTT_DONGLE",
     communicationDescription: "MQTT control and telemetry policy for ELEVATE IOTIQ dongle controllers.",
+    communicationVersion: "0.02",
     componentCount: 6,
     channels: "6S0F",
     parameters: [
@@ -154,45 +232,120 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     commandMessages: [
       {
         name: "Turn On",
+        messageType: "UPDATE",
         commandType: "turn_on",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
         topic: "mqtt/device/{{thingName}}/control",
-        payloadFormat: JSON.stringify({
-          command: {
-            subTopic: "control",
-            payloadTemplate: {
-              deviceid: "{{connectAdminDeviceId}}",
-              channel: "{{params.channel}}",
-              switch_no: "{{params.switchNo}}",
-              status: "on",
-            },
-          },
-        }),
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          channel: "{{params.channel}}",
+          switch_no: "{{params.switchNo}}",
+          status: "on",
+        }, null, 2),
+        topicUnique: true,
       },
       {
         name: "Turn Off",
+        messageType: "UPDATE",
         commandType: "turn_off",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
         topic: "mqtt/device/{{thingName}}/control",
-        payloadFormat: JSON.stringify({
-          command: {
-            subTopic: "control",
-            payloadTemplate: {
-              deviceid: "{{connectAdminDeviceId}}",
-              channel: "{{params.channel}}",
-              switch_no: "{{params.switchNo}}",
-              status: "off",
-            },
-          },
-        }),
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          channel: "{{params.channel}}",
+          switch_no: "{{params.switchNo}}",
+          status: "off",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "Settings",
+        messageType: "CONFIGURATION",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/setting",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          channel: "{{params.channel}}",
+          switch_no: "{{params.switchNo}}",
+          childlock: "{{params.childlock}}",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "Reset",
+        messageType: "UPDATE",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/reset",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          mode: "{{params.mode}}",
+          secret: "{{params.secret}}",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "Alive Request",
+        messageType: "AUTHENTICATE",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/alive",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+        }, null, 2),
+        topicUnique: true,
+      },
+      {
+        name: "OTA Initialize",
+        messageType: "STATUS",
+        commandType: "SUBSCRIBE",
+        policyType: "EXECUTE",
+        communicationMethod: "SUBSCRIBE",
+        topic: "mqtt/device/{{thingName}}/ota/intialize",
+        requestPayloadFormat: JSON.stringify({
+          deviceid: "{{connectAdminDeviceId}}",
+          url: "{{params.url}}",
+          ota_version: "{{params.otaVersion}}",
+        }, null, 2),
+        topicUnique: true,
       },
     ],
     telemetryMessages: [
       {
         name: "Dongle Telemetry",
-        messageType: "telemetry",
+        messageType: "UPDATE",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
         topic: MQTT_TOPIC_TEMPLATE,
-        payloadFormat: JSON.stringify({
+        requestPayloadFormat: JSON.stringify({
           expected: ["deviceid", "channel", "switch_no", "status", "firmware_version"],
-        }),
+        }, null, 2),
+      },
+      {
+        name: "Alive Reply",
+        messageType: "CONNECTION",
+        policyType: "QUERY",
+        communicationMethod: "PUBLISH",
+        topic: "$aws/things/+/alive_reply",
+        requestPayloadFormat: JSON.stringify({
+          expected: ["deviceid", "ssid", "ipaddress", "macaddress", "firmware_version"],
+        }, null, 2),
+      },
+      {
+        name: "OTA Validate",
+        messageType: "STATUS",
+        policyType: "EXECUTE",
+        communicationMethod: "PUBLISH",
+        topic: "$aws/things/+/ota/validate",
+        requestPayloadFormat: JSON.stringify({
+          expected: ["deviceid", "transactionId", "secrets", "firmware_version", "reply"],
+        }, null, 2),
       },
     ],
     catalog: {
@@ -231,6 +384,7 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     itemCode: "ELEVATE-IOTIQSM",
     communicationPolicy: "ELEVATE_MQTT_SMART_METER",
     communicationDescription: "MQTT telemetry policy for ELEVATE smart meter devices.",
+    communicationVersion: "0.01",
     componentCount: 1,
     parameters: [
       { name: "meter", variableType: "string" },
@@ -247,11 +401,13 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     telemetryMessages: [
       {
         name: "Smart Meter Telemetry",
-        messageType: "telemetry",
+        messageType: "STATUS",
+        policyType: "QUERY",
+        communicationMethod: "PUBLISH",
         topic: MQTT_TOPIC_TEMPLATE,
-        payloadFormat: JSON.stringify({
+        requestPayloadFormat: JSON.stringify({
           expected: ["deviceid", "meter", "status", "fault"],
-        }),
+        }, null, 2),
       },
     ],
     catalog: {
@@ -270,6 +426,7 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     itemCode: "ELEVATE-IOTIQ",
     communicationPolicy: "ELEVATE_MQTT_GENERIC",
     communicationDescription: "Fallback MQTT policy for ELEVATE-discovered devices.",
+    communicationVersion: "0.01",
     componentCount: 1,
     parameters: [
       { name: "deviceid", variableType: "string", isConstant: true },
@@ -280,8 +437,13 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     telemetryMessages: [
       {
         name: "Generic Telemetry",
-        messageType: "telemetry",
+        messageType: "STATUS",
+        policyType: "QUERY",
+        communicationMethod: "PUBLISH",
         topic: MQTT_TOPIC_TEMPLATE,
+        requestPayloadFormat: JSON.stringify({
+          expected: ["deviceid", "status", "firmware_version"],
+        }, null, 2),
       },
     ],
     catalog: {
@@ -365,15 +527,23 @@ async function ensureCommunication(template: ElevateFamilyTemplate) {
       groupName: ELEVATE_VENDOR_NAME,
       itemType: template.itemTypeName,
       protocol: "MQTT",
+      version: template.communicationVersion,
       messageFormat: "JSON",
-      centric: "DEVICE",
+      communicationMethod: "MQTT",
+      centric: "TOPIC",
       icon: "radio",
       needFirmware: true,
       needConfirmation: false,
+      format: "JSON",
+      transport: "MQTT",
       messageStructure: JSON.stringify({
         catalog: template.catalog,
       }),
       confirmationMessageStructure: JSON.stringify({}),
+      metadata: JSON.stringify({
+        firmwareControlled: true,
+        description: template.communicationDescription,
+      }),
       image: undefined,
     },
   });
@@ -456,15 +626,11 @@ async function ensureMessages(template: ElevateFamilyTemplate) {
   const definitions = [
     ...template.commandMessages.map((message) => ({
       ...message,
-      policyType: "command",
-      messageType: "command",
       loggedMessage: false,
       qos: 1,
     })),
     ...template.telemetryMessages.map((message) => ({
       ...message,
-      policyType: "telemetry",
-      commandType: undefined,
       loggedMessage: true,
       qos: 1,
     })),
@@ -492,10 +658,15 @@ async function ensureMessages(template: ElevateFamilyTemplate) {
         messageType: definition.messageType,
         commandType: definition.commandType,
         policyType: definition.policyType,
+        communicationMethod: definition.communicationMethod,
+        topicUnique: definition.topicUnique ?? false,
+        isPayloadCentric: definition.isPayloadCentric ?? false,
         retainMessages: false,
         loggedMessage: definition.loggedMessage,
         qos: definition.qos,
-        payloadFormat: definition.payloadFormat,
+        requestPayloadFormat: definition.requestPayloadFormat,
+        responsePayloadFormat: definition.responsePayloadFormat,
+        payloadFormat: definition.requestPayloadFormat,
       },
     });
   }
