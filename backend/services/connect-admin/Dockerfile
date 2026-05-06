@@ -11,6 +11,6 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-EXPOSE 4001
+EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma db push && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push && npm run start"]
