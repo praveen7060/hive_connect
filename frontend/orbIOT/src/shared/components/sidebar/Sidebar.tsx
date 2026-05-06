@@ -61,22 +61,15 @@ function NavItem({ item, expanded, activePath, activeSearch }: NavItemProps) {
           ].join(" ")
         }
       >
-        {({ isActive }) => (
-          <>
-            {isActive && (
-              <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-600" />
-            )}
+	        {({ isActive }) => (
+	          <>
+	            {isActive && (
+	              <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-600" />
+	            )}
 
-            <span className="flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
-              <Icon
-                size={17}
-                className={isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-700"}
-              />
-            </span>
-
-            <span
-              className={[
-                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all duration-200",
+	            <span
+	              className={[
+	                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all duration-200",
                 isActive
                   ? "bg-white text-slate-950 shadow-[0_4px_16px_rgba(15,23,42,0.08)]"
                   : "bg-transparent text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800",
