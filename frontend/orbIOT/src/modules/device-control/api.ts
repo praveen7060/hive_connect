@@ -1,4 +1,9 @@
-import type { ClaimedDeviceRecord, ControlApplication, ExecuteCommandInput } from "./types";
+import type {
+  CatalogProfileResponse,
+  ClaimedDeviceRecord,
+  ControlApplication,
+  ExecuteCommandInput,
+} from "./types";
 
 const ENV_API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
@@ -81,12 +86,17 @@ export const deviceControlApi = {
         "x-app-key": appKey,
       },
     }),
+  getCatalogProfile: (deviceId: string) =>
+    apiRequest<CatalogProfileResponse>(`/iot/catalog/devices/${encodeURIComponent(deviceId)}/profile`, "GET"),
   executeClaimedCommand: ({
     appId,
     appKey,
     deviceId,
     commandKey,
     installationId,
+    messageId,
+    topic,
+    subTopic,
     parameters,
     payload,
   }: ExecuteCommandInput) =>
@@ -99,6 +109,9 @@ export const deviceControlApi = {
         },
         body: {
           installationId,
+          messageId,
+          topic,
+          subTopic,
           parameters,
           payload,
         },

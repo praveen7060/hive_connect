@@ -38,8 +38,18 @@ export interface ClaimedDeviceRecord {
 
 export interface CommandDefinition {
   key: string;
+  messageId: string;
+  name: string;
+  commandType?: string | null;
+  messageType?: string | null;
+  policyType?: string | null;
+  communicationMethod?: string | null;
+  topicTemplate?: string | null;
   subTopic?: string;
+  topicUnique?: boolean;
+  isPayloadCentric?: boolean;
   payloadTemplate?: Record<string, unknown>;
+  confirmationPayloadTemplate?: Record<string, unknown>;
 }
 
 export interface DeviceCatalogSummary {
@@ -53,12 +63,64 @@ export interface DeviceCatalogSummary {
   commands: CommandDefinition[];
 }
 
+export interface CatalogProfileResponse {
+  device: {
+    id: string;
+    name: string;
+    serialNumber?: string | null;
+    connectionType?: string | null;
+    project?: string | null;
+    status?: string | null;
+  };
+  item?: {
+    id: string;
+    name: string;
+    itemCode?: string | null;
+    itemType?: string | null;
+  } | null;
+  communication?: {
+    id: string;
+    name: string;
+    protocol?: string | null;
+    version?: string | null;
+    centric?: string | null;
+    communicationMethod?: string | null;
+    transport?: string | null;
+    format?: string | null;
+  } | null;
+  thingId?: string | null;
+  thingName?: string | null;
+  connectAdminDeviceId: string;
+  provisioning?: {
+    channels?: string | null;
+    thingName?: string | null;
+    deviceType?: string | null;
+  } | null;
+  commands: CommandDefinition[];
+  messages: Array<{
+    id: string;
+    name: string;
+    topic: string;
+    messageType?: string | null;
+    commandType?: string | null;
+    policyType?: string | null;
+    communicationMethod?: string | null;
+    topicUnique?: boolean;
+    isPayloadCentric?: boolean;
+    requestPayloadFormat?: string | null;
+    responsePayloadFormat?: string | null;
+  }>;
+}
+
 export interface ExecuteCommandInput {
   appId: string;
   appKey: string;
   deviceId: string;
   commandKey: string;
   installationId?: string;
+  messageId?: string;
+  topic?: string;
+  subTopic?: string;
   parameters?: Record<string, unknown>;
   payload?: Record<string, unknown>;
 }

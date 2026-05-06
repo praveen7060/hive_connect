@@ -15,6 +15,7 @@ import { RightDrawer } from "../device-inventory/components/management/ui";
 import { deviceControlApi } from "./api";
 import { useDeviceControlData } from "./hooks";
 import type {
+  CatalogProfileResponse,
   ClaimedDeviceRecord,
   CommandDefinition,
   DeviceCatalogSummary,
@@ -39,40 +40,60 @@ function parseJsonObject(value: string | null | undefined): Record<string, unkno
   }
 }
 
-function parseCommandDefinitions(device: ClaimedDeviceRecord): DeviceCatalogSummary {
+function humanizeCommandKey(value: string) {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function humanizeMessageLabel(action: CommandDefinition) {
+  return action.name?.trim() || humanizeCommandKey(action.key);
+}
+
+function parseFallbackCommands(device: ClaimedDeviceRecord) {
   const metadata = parseJsonObject(device.device.metadata);
   const catalog = (metadata.catalog ?? {}) as Record<string, unknown>;
   const commandsRaw = (catalog.commands ?? {}) as Record<string, unknown>;
-  const commands: CommandDefinition[] = Object.entries(commandsRaw).map(([key, value]) => {
+
+  return Object.entries(commandsRaw).map(([key, value]) => {
     const record = value && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
+
     return {
       key,
+      messageId: key,
+      name: humanizeCommandKey(key),
+      topicTemplate: typeof record.topic === "string" ? record.topic : undefined,
       subTopic: typeof record.subTopic === "string" ? record.subTopic : undefined,
       payloadTemplate:
         record.payloadTemplate && typeof record.payloadTemplate === "object" && !Array.isArray(record.payloadTemplate)
           ? (record.payloadTemplate as Record<string, unknown>)
           : undefined,
-    };
+    } satisfies CommandDefinition;
   });
+}
+
+function parseCommandDefinitions(
+  device: ClaimedDeviceRecord,
+  profile?: CatalogProfileResponse | null
+): DeviceCatalogSummary {
+  const metadata = parseJsonObject(device.device.metadata);
+  const catalog = (metadata.catalog ?? {}) as Record<string, unknown>;
+  const commands = profile?.commands?.length ? profile.commands : parseFallbackCommands(device);
 
   return {
     vendorName: String(catalog.vendorName ?? catalog.vendor ?? "Unmapped"),
-    itemCode: String(catalog.itemCode ?? "-"),
-    itemName: String(catalog.itemName ?? catalog.itemType ?? device.device.name ?? "-"),
-    communicationPolicy: String(catalog.communicationPolicy ?? "-"),
-    channels: String(catalog.channels ?? "-"),
-    thingId: String(catalog.thingId ?? "-"),
-    connectAdminDeviceId: String(catalog.connectAdminDeviceId ?? device.device.serialNumber ?? "-"),
+    itemCode: String(profile?.item?.itemCode ?? catalog.itemCode ?? "-"),
+    itemName: String(profile?.item?.name ?? catalog.itemName ?? catalog.itemType ?? device.device.name ?? "-"),
+    communicationPolicy: String(profile?.communication?.name ?? catalog.communicationPolicy ?? "-"),
+    channels: String(profile?.provisioning?.channels ?? catalog.channels ?? "-"),
+    thingId: String(profile?.thingId ?? catalog.thingId ?? "-"),
+    connectAdminDeviceId: String(
+      profile?.connectAdminDeviceId ?? catalog.connectAdminDeviceId ?? device.device.serialNumber ?? "-"
+    ),
     commands,
   };
-}
-
-function humanizeCommandKey(value: string) {
-  return value
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function collectParameterKeys(payloadTemplate: Record<string, unknown> | undefined) {
@@ -122,6 +143,15 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
+function getActionDescription(action: CommandDefinition) {
+  const parameterKeys = collectParameterKeys(action.payloadTemplate);
+  const direction = [action.communicationMethod, action.commandType].filter(Boolean).join(" / ");
+  if (parameterKeys.length > 0) {
+    return `Configure ${parameterKeys.join(", ")} before sending this topic action.${direction ? ` ${direction}.` : ""}`;
+  }
+  return `Ready from the communication policy topic mapping.${direction ? ` ${direction}.` : ""}`;
+}
+
 function DeviceControlMetric({
   label,
   value,
@@ -159,6 +189,8 @@ export default function DeviceControlPage() {
   const [sending, setSending] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<string | null>(null);
+  const [catalogProfiles, setCatalogProfiles] = useState<Record<string, CatalogProfileResponse>>({});
+  const [profilesLoading, setProfilesLoading] = useState(false);
 
   useEffect(() => {
     if (!claimedDevices.length) {
@@ -171,11 +203,49 @@ export default function DeviceControlPage() {
     );
   }, [claimedDevices]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfiles = async () => {
+      if (!claimedDevices.length) {
+        setCatalogProfiles({});
+        return;
+      }
+
+      setProfilesLoading(true);
+      try {
+        const results = await Promise.all(
+          claimedDevices.map(async (entry) => {
+            try {
+              const profile = await deviceControlApi.getCatalogProfile(entry.device.id);
+              return [entry.device.id, profile] as const;
+            } catch {
+              return [entry.device.id, null] as const;
+            }
+          })
+        );
+
+        if (!mounted) return;
+        setCatalogProfiles(
+          Object.fromEntries(results.filter(([, profile]) => Boolean(profile))) as Record<string, CatalogProfileResponse>
+        );
+      } finally {
+        if (mounted) setProfilesLoading(false);
+      }
+    };
+
+    void loadProfiles();
+
+    return () => {
+      mounted = false;
+    };
+  }, [claimedDevices]);
+
   const filteredDevices = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return claimedDevices.filter((entry) => {
       if (!query) return true;
-      const catalog = parseCommandDefinitions(entry);
+      const catalog = parseCommandDefinitions(entry, catalogProfiles[entry.device.id]);
       return [
         entry.device.name,
         entry.device.serialNumber,
@@ -186,18 +256,19 @@ export default function DeviceControlPage() {
         .map((value) => String(value ?? "").toLowerCase())
         .some((value) => value.includes(query));
     });
-  }, [claimedDevices, searchTerm]);
+  }, [catalogProfiles, claimedDevices, searchTerm]);
 
   const selectedDevice = filteredDevices.find((entry) => entry.id === selectedClaimId) ?? filteredDevices[0] ?? null;
-  const selectedCatalog = selectedDevice ? parseCommandDefinitions(selectedDevice) : null;
+  const selectedProfile = selectedDevice ? catalogProfiles[selectedDevice.device.id] ?? null : null;
+  const selectedCatalog = selectedDevice ? parseCommandDefinitions(selectedDevice, selectedProfile) : null;
 
   const metrics = useMemo(() => {
     const totalActions = filteredDevices.reduce(
-      (sum, entry) => sum + parseCommandDefinitions(entry).commands.length,
+      (sum, entry) => sum + parseCommandDefinitions(entry, catalogProfiles[entry.device.id]).commands.length,
       0
     );
     const elevateClaims = filteredDevices.filter(
-      (entry) => parseCommandDefinitions(entry).vendorName.toUpperCase() === "ELEVATE"
+      (entry) => parseCommandDefinitions(entry, catalogProfiles[entry.device.id]).vendorName.toUpperCase() === "ELEVATE"
     ).length;
 
     return {
@@ -206,7 +277,7 @@ export default function DeviceControlPage() {
       configurableActions: totalActions,
       elevateClaims,
     };
-  }, [apps.length, filteredDevices]);
+  }, [apps.length, catalogProfiles, filteredDevices]);
 
   const openActionDrawer = (device: ClaimedDeviceRecord, action: CommandDefinition) => {
     setActiveAction(action);
@@ -244,12 +315,15 @@ export default function DeviceControlPage() {
         deviceId: selectedDevice.device.id,
         commandKey: activeAction.key,
         installationId: draft.installationId.trim() || undefined,
+        messageId: activeAction.messageId,
+        topic: activeAction.topicTemplate ?? undefined,
+        subTopic: activeAction.subTopic ?? undefined,
         parameters: cleanParameters,
         payload: payloadJson,
       };
 
       await deviceControlApi.executeClaimedCommand(request);
-      setSubmitResult(`Command ${humanizeCommandKey(activeAction.key)} sent successfully.`);
+      setSubmitResult(`Action ${humanizeMessageLabel(activeAction)} sent successfully.`);
     } catch (sendError) {
       setSubmitError(sendError instanceof Error ? sendError.message : "Failed to send command");
     } finally {
@@ -264,7 +338,7 @@ export default function DeviceControlPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Device Control</p>
           <h1 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] text-slate-950">Action control panel</h1>
           <p className="mt-2 text-[13px] text-slate-500">
-            Review claimed devices, inspect vendor-specific actions, and configure the exact command payload before dispatch.
+            Review claimed devices, inspect device-type topic actions, and configure the exact MQTT payload before dispatch.
           </p>
         </div>
         <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[12px] text-slate-500 shadow-sm">
@@ -289,7 +363,7 @@ export default function DeviceControlPage() {
           icon={<Settings2 size={18} />}
           label="Available actions"
           value={String(metrics.configurableActions)}
-          helper="Vendor actions resolved from device catalog metadata"
+          helper="Topics resolved from device communication policies"
         />
         <DeviceControlMetric
           icon={<Activity size={18} />}
@@ -305,7 +379,7 @@ export default function DeviceControlPage() {
             <div>
               <p className="text-[15px] font-semibold tracking-[-0.02em] text-slate-950">Claimed device registry</p>
               <p className="mt-1 text-[13px] text-slate-500">
-                Select an application, then choose a claimed device to reveal its supported control actions.
+                Select an application, then choose a claimed device to reveal the messaging-policy topics available for control.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -360,6 +434,12 @@ export default function DeviceControlPage() {
                       Loading claimed devices...
                     </td>
                   </tr>
+                ) : profilesLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-16 text-center text-[13px] text-slate-500">
+                      Resolving communication policies and topic actions...
+                    </td>
+                  </tr>
                 ) : filteredDevices.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-16 text-center text-[13px] text-slate-500">
@@ -368,7 +448,7 @@ export default function DeviceControlPage() {
                   </tr>
                 ) : (
                   filteredDevices.map((entry) => {
-                    const catalog = parseCommandDefinitions(entry);
+                    const catalog = parseCommandDefinitions(entry, catalogProfiles[entry.device.id]);
                     const isSelected = selectedDevice?.id === entry.id;
                     return (
                       <tr
@@ -424,7 +504,7 @@ export default function DeviceControlPage() {
               <div>
                 <p className="text-[14px] font-semibold text-slate-700">Select a claimed device</p>
                 <p className="mt-1 text-[12.5px] text-slate-500">
-                  The action list will appear here once a claimed device is selected.
+                  The topic-based action list will appear here once a claimed device is selected.
                 </p>
               </div>
             </div>
@@ -433,7 +513,7 @@ export default function DeviceControlPage() {
               <div className="border-b border-slate-200 pb-4">
                 <p className="text-[15px] font-semibold tracking-[-0.02em] text-slate-950">Available actions</p>
                 <p className="mt-1 text-[13px] text-slate-500">
-                  Configure and send vendor-specific actions for {selectedDevice.device.name}.
+                  Messaging-policy topics for {selectedDevice.device.name}, resolved from its communication policy.
                 </p>
               </div>
 
@@ -455,46 +535,50 @@ export default function DeviceControlPage() {
               <div className="space-y-3">
                 {selectedCatalog.commands.length === 0 ? (
                   <div className="rounded-[18px] border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-[13px] text-slate-500">
-                    No catalog actions have been mapped for this device yet.
+                    No topic actions have been mapped for this device yet.
                   </div>
                 ) : (
-                  selectedCatalog.commands.map((action) => {
-                    const parameterKeys = collectParameterKeys(action.payloadTemplate);
-                    return (
-                      <div
-                        key={action.key}
-                        className="flex flex-col gap-4 rounded-[18px] border border-slate-200 bg-white px-4 py-4 md:flex-row md:items-center md:justify-between"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                              <Play size={14} />
+                  selectedCatalog.commands.map((action) => (
+                    <div
+                      key={`${action.messageId}-${action.key}`}
+                      className="flex flex-col gap-4 rounded-[18px] border border-slate-200 bg-white px-4 py-4 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                            <Play size={14} />
+                          </span>
+                          <p className="text-[14px] font-semibold text-slate-900">{humanizeMessageLabel(action)}</p>
+                          {action.messageType ? (
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
+                              {action.messageType}
                             </span>
-                            <p className="text-[14px] font-semibold text-slate-900">{humanizeCommandKey(action.key)}</p>
-                            {action.subTopic ? (
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
-                                {action.subTopic}
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="text-[12.5px] text-slate-500">
-                            {parameterKeys.length > 0
-                              ? `Configure ${parameterKeys.join(", ")} before sending this action.`
-                              : "This action can be sent with the current catalog payload template."}
-                          </p>
+                          ) : null}
+                          {action.commandType ? (
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
+                              {action.commandType}
+                            </span>
+                          ) : null}
+                          {action.subTopic ? (
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10.5px] font-medium text-slate-500">
+                              {action.subTopic}
+                            </span>
+                          ) : null}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openActionDrawer(selectedDevice, action)}
-                          className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white hover:text-slate-950"
-                        >
-                          <Settings2 size={14} />
-                          Configure action
-                        </button>
+                        <p className="text-[11.5px] font-medium break-all text-slate-600">{action.topicTemplate ?? "-"}</p>
+                        <p className="text-[12.5px] text-slate-500">{getActionDescription(action)}</p>
                       </div>
-                    );
-                  })
+
+                      <button
+                        type="button"
+                        onClick={() => openActionDrawer(selectedDevice, action)}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white hover:text-slate-950"
+                      >
+                        <Settings2 size={14} />
+                        Configure action
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -507,10 +591,10 @@ export default function DeviceControlPage() {
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
             <div>
               <p className="text-[20px] font-semibold tracking-[-0.03em] text-slate-950">
-                {activeAction ? humanizeCommandKey(activeAction.key) : "Configure action"}
+                {activeAction ? humanizeMessageLabel(activeAction) : "Configure action"}
               </p>
               <p className="mt-1 text-[12.5px] text-slate-500">
-                Review installation, fill parameter values, and send the resolved command payload.
+                Review the topic policy, fill parameter values, and send the resolved MQTT payload.
               </p>
             </div>
             <button
@@ -537,11 +621,28 @@ export default function DeviceControlPage() {
                     <input
                       value={draft.installationId}
                       onChange={(event) =>
-                        setDraft((current) => current ? { ...current, installationId: event.target.value } : current)
+                        setDraft((current) => (current ? { ...current, installationId: event.target.value } : current))
                       }
                       placeholder="installation id"
                       className="app-shell-input mt-2 w-full px-4 text-[12.5px] text-slate-700 outline-none transition"
                     />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 rounded-[20px] border border-slate-200 bg-slate-50/60 p-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Topic</p>
+                    <p className="mt-2 break-all text-[13px] font-medium text-slate-900">{activeAction.topicTemplate ?? "-"}</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Message Type</p>
+                      <p className="mt-2 text-[13px] font-medium text-slate-900">{activeAction.messageType ?? "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Policy Type</p>
+                      <p className="mt-2 text-[13px] font-medium text-slate-900">{activeAction.policyType ?? "-"}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -550,7 +651,7 @@ export default function DeviceControlPage() {
                     <div>
                       <p className="text-[14px] font-semibold text-slate-900">Action parameters</p>
                       <p className="mt-1 text-[12.5px] text-slate-500">
-                        These values fill the {"{{params.*}}"} placeholders defined in the catalog command template.
+                        These values fill the {"{{params.*}}"} placeholders defined in the messaging policy payload template.
                       </p>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
@@ -585,13 +686,13 @@ export default function DeviceControlPage() {
                   <div>
                     <p className="text-[14px] font-semibold text-slate-900">Payload override</p>
                     <p className="mt-1 text-[12.5px] text-slate-500">
-                      Edit the JSON payload if you need to override the default command body.
+                      Edit the JSON payload if you need to override the default topic body.
                     </p>
                   </div>
                   <textarea
                     value={draft.payloadJson}
                     onChange={(event) =>
-                      setDraft((current) => current ? { ...current, payloadJson: event.target.value } : current)
+                      setDraft((current) => (current ? { ...current, payloadJson: event.target.value } : current))
                     }
                     rows={14}
                     className="app-shell-textarea w-full px-4 py-3 text-[12.5px] text-slate-700 outline-none transition"
