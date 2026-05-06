@@ -122,10 +122,32 @@ export default function ItemForm({
   };
 
   return (
-    <article className="inventory-form-theme mx-auto w-full">
+    <article className="inventory-form-theme mx-auto w-full px-6 py-6">
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#0f2554]">
+              {editing ? "Edit Item" : "New Item"}
+            </h2>
+            <p className="mt-1 text-sm text-[#5f6f8a]">
+              {editing
+                ? "Update the item details below."
+                : "Create an inventory item and map it to an item type."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close"
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+
       <form id={formId} className="space-y-6" onSubmit={onSubmit}>
-        {/* Form fields grid - exactly matching the images */}
-        <div className="bg-white rounded-xl border border-[#eef2f6] shadow-sm p-6 space-y-6">
+        <div className="space-y-6">
           {/* Name - Required */}
           <div>
             <label className="block text-sm font-medium text-[#334664] mb-1.5">

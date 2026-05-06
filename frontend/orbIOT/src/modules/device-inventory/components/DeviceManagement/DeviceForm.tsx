@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface DeviceFormProps {
@@ -71,11 +72,21 @@ export default function DeviceForm({
   return (
     <div className="inventory-form-theme p-7">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#0f2554]">
-          {formTitle}
-        </h2>
-        <p className="mt-1 text-sm text-[#5f6f8a]">{formSubtitle}</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#0f2554]">
+            {formTitle}
+          </h2>
+          <p className="mt-1 text-sm text-[#5f6f8a]">{formSubtitle}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          aria-label="Close"
+        >
+          <X size={18} strokeWidth={2} />
+        </button>
       </div>
 
       <form id={formId} onSubmit={onSubmit} className="space-y-5">

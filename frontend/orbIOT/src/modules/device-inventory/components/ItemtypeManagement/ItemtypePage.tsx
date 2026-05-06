@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import ItemtypeForm from "./ItemtypeForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
+import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -443,29 +444,27 @@ export default function ItemTypeManagementPage() {
           </div>
 
           {/* Right Column - Form */}
-          {formOpen && (
-            <div className="inventory-form-shell inventory-form-theme shrink-0 relative">
-              <ItemtypeForm
-                formId="item-type-form"
-                formTitle={editingId ? "Edit Item Type" : "New Item Type"}
-                formSubtitle={editingId ? "Update the item type details below." : "Create a new item type and optional synonyms."}
-                editing={!!editingId}
-                values={formValues}
-                vendorOptions={vendorOptions}
-                vendorsLoading={vendorsLoading}
-                parameterOptions={parameterOptions}
-                parametersLoading={parametersLoading}
-                onValueChange={(key, value) => setFormValues(prev => ({ ...prev, [key]: value }))}
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSubmit(formValues);
-                }}
-                onCancel={handleCancel}
-                onBack={goToPreviousPage}
-                onSaveAndNext={handleSaveAndNext}
-              />
-            </div>
-          )}
+          <RightDrawer open={formOpen} onClose={handleCancel}>
+            <ItemtypeForm
+              formId="item-type-form"
+              formTitle={editingId ? "Edit Item Type" : "New Item Type"}
+              formSubtitle={editingId ? "Update the item type details below." : "Create a new item type and optional synonyms."}
+              editing={!!editingId}
+              values={formValues}
+              vendorOptions={vendorOptions}
+              vendorsLoading={vendorsLoading}
+              parameterOptions={parameterOptions}
+              parametersLoading={parametersLoading}
+              onValueChange={(key, value) => setFormValues(prev => ({ ...prev, [key]: value }))}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit(formValues);
+              }}
+              onCancel={handleCancel}
+              onBack={goToPreviousPage}
+              onSaveAndNext={handleSaveAndNext}
+            />
+          </RightDrawer>
         </div>
       </div>
     </div>

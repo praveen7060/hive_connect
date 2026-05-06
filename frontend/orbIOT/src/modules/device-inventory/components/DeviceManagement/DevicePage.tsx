@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
+  ArrowLeft,
   Search,
   RotateCcw,
   Pencil,
@@ -10,6 +12,7 @@ import {
 } from "lucide-react";
 import DeviceForm from "./DeviceForm";
 import DeviceDetailsView from "./DeviceDetailsView";
+import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi, type IotProvisionResponse } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -364,6 +367,7 @@ function StatCard({ label, value, sub }: StatCardProps) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function DeviceManagementPage() {
+  const [searchParams] = useSearchParams();
   const [formOpen, setFormOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | number | null>(null);
@@ -486,6 +490,21 @@ export default function DeviceManagementPage() {
     if (current) values.add(current);
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [communicationRows, formValues.communicationPolicy, formValues.itemTypeName, itemRows]);
+
+  useEffect(() => {
+    const shouldCreate = searchParams.get("create");
+    const requestedVendor = String(searchParams.get("vendorName") ?? "").trim();
+
+    if (shouldCreate !== "true") return;
+    if (formOpen || selectedDeviceId !== null || editingId !== null) return;
+
+    setFormValues((prev) => ({
+      ...prev,
+      vendorName: requestedVendor || String(prev.vendorName ?? ""),
+    }));
+    setSubmitError(null);
+    setFormOpen(true);
+  }, [editingId, formOpen, searchParams, selectedDeviceId]);
 
   const openCreate = (): void => {
     setEditingId(null);
@@ -754,7 +773,7 @@ export default function DeviceManagementPage() {
           }`}
         >
           {selectedDevice ? (
-            <><X size={14} strokeWidth={2.5} />Back To List</>
+            <><X size={14} strokeWidth={2.5} />Close Panel</>
           ) : formOpen ? (
             <><X size={14} strokeWidth={2.5} />Close</>
           ) : (
@@ -765,11 +784,22 @@ export default function DeviceManagementPage() {
 
       {selectedDevice ? (
         <div className="px-12 mt-8 pb-14">
-          <DeviceDetailsView
-            device={selectedDevice}
-            onBack={() => setSelectedDeviceId(null)}
-            onEdit={() => openEdit(selectedDevice)}
-          />
+          <button
+            type="button"
+            onClick={() => setSelectedDeviceId(null)}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
+          >
+            <ArrowLeft size={14} />
+            Devices
+          </button>
+
+          <div className="mt-5">
+            <DeviceDetailsView
+              device={selectedDevice}
+              onBack={() => setSelectedDeviceId(null)}
+              onEdit={() => openEdit(selectedDevice)}
+            />
+          </div>
         </div>
       ) : (
       <>
@@ -950,32 +980,27 @@ export default function DeviceManagementPage() {
         </div>
 
         {/* Side Form Panel */}
-        {formOpen && (
-          <div className="inventory-form-shell inventory-form-theme slide-in-panel shrink-0 sticky top-8">
-            <div className="inventory-form-panel rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-              {/* Form with separate scrolling */}
-              <div className="form-scroll max-h-[calc(100vh-200px)]">
-                <DeviceForm
-                  formId="device-form"
-                  formTitle={editingId ? "Edit Device" : "Create New Device"}
-                  formSubtitle={editingId ? "Update the device details below." : "Enter the details for the new device"}
-                  editing={!!editingId}
-                  values={formValues}
-                  vendorOptions={vendorOptions}
-                  itemTypeOptions={itemTypeOptions}
-                  communicationPolicyOptions={communicationPolicyOptions}
-                  vendorsLoading={vendorsLoading}
-                  itemTypesLoading={itemTypesLoading}
-                  communicationPoliciesLoading={communicationPoliciesLoading}
-                  onValueChange={handleValueChange}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isSaving={isSaving}
-                />
-              </div>
-            </div>
+        <RightDrawer open={formOpen} onClose={handleCancel} size="large">
+          <div className="form-scroll h-full overflow-y-auto">
+            <DeviceForm
+              formId="device-form"
+              formTitle={editingId ? "Edit Device" : "Create New Device"}
+              formSubtitle={editingId ? "Update the device details below." : "Enter the details for the new device"}
+              editing={!!editingId}
+              values={formValues}
+              vendorOptions={vendorOptions}
+              itemTypeOptions={itemTypeOptions}
+              communicationPolicyOptions={communicationPolicyOptions}
+              vendorsLoading={vendorsLoading}
+              itemTypesLoading={itemTypesLoading}
+              communicationPoliciesLoading={communicationPoliciesLoading}
+              onValueChange={handleValueChange}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isSaving={isSaving}
+            />
           </div>
-        )}
+        </RightDrawer>
       </div>
       </>
       )}

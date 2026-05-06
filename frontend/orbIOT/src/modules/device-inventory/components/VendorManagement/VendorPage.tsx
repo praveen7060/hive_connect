@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import VendorForm from "./VendorForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
+import { InventoryEmptyState, InventoryPagination, RightDrawer } from "../management/ui";
 import { deviceInventoryApi } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -196,9 +197,11 @@ function StatCard({ label, value, sub }: StatCardProps) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function VendorManagementPage() {
   const navigate = useNavigate();
+  const PAGE_SIZE = 10;
   const [formOpen, setFormOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
   const [filters, setFilters] = useState<Record<string, string>>(
     FILTERS.reduce<Record<string, string>>((acc, f) => {
       acc[f.key] = "all";
@@ -230,6 +233,12 @@ export default function VendorManagementPage() {
   }, [filters, rows, searchTerm]);
 
   const industries = new Set(rows.map((r) => String(r.industry ?? "")));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedRows = filteredRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const openCreate = (): void => {
     setEditingId(null);
@@ -340,6 +349,7 @@ export default function VendorManagementPage() {
 
   const resetFilters = (): void => {
     setSearchTerm("");
+    setPage(1);
     setFilters(
       FILTERS.reduce<Record<string, string>>((acc, f) => {
         acc[f.key] = "all";
@@ -352,19 +362,7 @@ export default function VendorManagementPage() {
     !!searchTerm || FILTERS.some((f) => filters[f.key] !== "all");
 
   return (
-    <div
-      className="inventory-page-theme min-h-screen w-full"
-    >
-      <style>{`
-        @keyframes slideInPanel {
-          from { opacity: 0; transform: translateX(28px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        .slide-in-panel {
-          animation: slideInPanel 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-      `}</style>
-
+    <div className="inventory-page-theme min-h-screen w-full">
       {/* ── Top bar ── */}
       <div className="flex items-start justify-between px-12 pt-12 pb-0">
         <div>
@@ -442,10 +440,10 @@ export default function VendorManagementPage() {
       )}
 
       {/* ── Main split layout ── */}
-      <div className="px-12 mt-8 pb-14 flex gap-6 items-start">
+      <div className="px-12 mt-8 pb-14">
 
         {/* ── Table column ── */}
-        <div className={`flex-1 min-w-0 transition-all duration-300 ${formOpen ? 'w-[calc(100%-540px)]' : 'w-full'}`}>
+        <div className="flex-1 min-w-0">
 
           {/* Filter bar */}
           <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -456,7 +454,10 @@ export default function VendorManagementPage() {
               />
               <input
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Search vendors…"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 placeholder:text-slate-400"
               />
@@ -475,9 +476,10 @@ export default function VendorManagementPage() {
               <div key={f.key} className="relative">
                 <select
                   value={filters[f.key]}
-                  onChange={(e) =>
-                    setFilters((c) => ({ ...c, [f.key]: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setFilters((c) => ({ ...c, [f.key]: e.target.value }));
+                    setPage(1);
+                  }}
                   className="h-11 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 cursor-pointer"
                 >
                   <option value="all">{f.label}</option>
@@ -529,17 +531,15 @@ export default function VendorManagementPage() {
                   {filteredRows.length === 0 ? (
                     <tr>
                       <td colSpan={COLUMNS.length + 1} className="py-20 text-center">
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                            <Search size={18} className="text-slate-400" />
-                          </div>
-                          <p className="text-[13px] font-semibold text-slate-500">No vendors found</p>
-                          <p className="text-[12px] text-slate-400">Try adjusting your filters</p>
-                        </div>
+                        <InventoryEmptyState
+                          icon={<Search size={18} />}
+                          title="No vendors found"
+                          subtitle="Try adjusting your filters"
+                        />
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((row) => (
+                    paginatedRows.map((row) => (
                       <tr
                         key={row.id}
                         className={`border-b border-slate-50 last:border-0 transition-colors hover:bg-slate-50/70 ${
@@ -627,30 +627,35 @@ export default function VendorManagementPage() {
                   : `1–${filteredRows.length} of ${rows.length}`}
               </span>
             </div>
+            <InventoryPagination
+              page={currentPage}
+              pageSize={PAGE_SIZE}
+              total={filteredRows.length}
+              label={`vendor${filteredRows.length !== 1 ? "s" : ""}`}
+              onPageChange={setPage}
+            />
           </div>
         </div>
 
         {/* ── Side Form Panel ── */}
-        {formOpen && (
-          <div className="inventory-form-shell inventory-form-theme slide-in-panel shrink-0 sticky top-8">
-            <VendorForm
-              formId="vendor-form"
-              formTitle={editingId ? "Edit Vendor" : "New Vendor"}
-              formSubtitle={
-                editingId
-                  ? "Update the vendor details below."
-                  : "Fill in the details to add a new vendor."
-              }
-              editing={!!editingId}
-              values={formValues}
-              onValueChange={handleValueChange}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              onSaveAndNext={handleSaveAndNext}
-              onBack={goToPreviousPage}
-            />
-          </div>
-        )}
+        <RightDrawer open={formOpen} onClose={handleCancel}>
+          <VendorForm
+            formId="vendor-form"
+            formTitle={editingId ? "Edit Vendor" : "New Vendor"}
+            formSubtitle={
+              editingId
+                ? "Update the vendor details below."
+                : "Fill in the details to add a new vendor."
+            }
+            editing={!!editingId}
+            values={formValues}
+            onValueChange={handleValueChange}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            onSaveAndNext={handleSaveAndNext}
+            onBack={goToPreviousPage}
+          />
+        </RightDrawer>
       </div>
     </div>
   );

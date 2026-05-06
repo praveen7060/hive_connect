@@ -1,11 +1,13 @@
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../middleware/error.middleware";
 import { ConnectAdminHttpError, connectAdminClient } from "../iot-orchestration/connectAdmin.client";
+import { ensureElevateCatalog } from "./elevateCatalog";
 import type { z } from "zod";
-import { createDeviceSchema, updateDeviceSchema } from "./device.schema";
+import { createDeviceSchema, discoveredDeviceSyncSchema, updateDeviceSchema } from "./device.schema";
 
 type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 type UpdateDeviceInput = z.infer<typeof updateDeviceSchema>;
+type DiscoveredDeviceSyncInput = z.infer<typeof discoveredDeviceSyncSchema>;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -101,6 +103,32 @@ function isConnectAdminUnavailableError(error: unknown): boolean {
   );
 }
 
+function parseJsonObject(value: string | null | undefined): Record<string, unknown> {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isPlainObject(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function stringifyJson(value: Record<string, unknown>) {
+  return JSON.stringify(value, null, 2);
+}
+
+function getDiscoveredDeviceName(serialNumber: string, fallbackName?: string) {
+  const explicit = getString(fallbackName);
+  if (explicit) {
+    return explicit;
+  }
+
+  return serialNumber;
+}
+
 export const deviceService = {
   list: () => prisma.device.findMany({ orderBy: { createdAt: "desc" } }),
   getById: (id: string) => prisma.device.findUnique({ where: { id } }),
@@ -143,5 +171,86 @@ export const deviceService = {
     }
 
     return prisma.device.delete({ where: { id } });
+  },
+  async upsertDiscovered(data: DiscoveredDeviceSyncInput) {
+    const serialNumber = data.serialNumber.trim();
+    const source = getString(data.source) ?? "connect-admin";
+    const catalogSeed = await ensureElevateCatalog({
+      serialNumber,
+      channels: getString(data.channels),
+      firmwareVersion: getString(data.firmwareVersion),
+      thingId: getString(data.thingId),
+    });
+
+    const existing = await prisma.device.findFirst({
+      where: { serialNumber },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const currentMetadata = parseJsonObject(existing?.metadata);
+    const currentCatalog = isPlainObject(currentMetadata.catalog) ? currentMetadata.catalog : {};
+    const currentRuntime = isPlainObject(currentMetadata.runtime) ? currentMetadata.runtime : {};
+    const currentDiscovery = isPlainObject(currentMetadata.discovery) ? currentMetadata.discovery : {};
+    const seededCatalog = catalogSeed.template.catalog as Record<string, unknown>;
+
+    const catalogMetadata = {
+      ...seededCatalog,
+      ...currentCatalog,
+      vendorName: catalogSeed.vendorName,
+      itemType: catalogSeed.template.itemTypeName,
+      itemName: catalogSeed.template.itemName,
+      itemCode: catalogSeed.template.itemCode,
+      communicationPolicy: catalogSeed.template.communicationPolicy,
+      deviceType: getString(seededCatalog.deviceType),
+      channels: getString(data.channels) ?? catalogSeed.template.channels,
+      connectAdminDeviceId: serialNumber,
+      thingId: getString(data.thingId) ?? getString(existing?.foreignId),
+    };
+
+    const runtimeMetadata = {
+      ...currentRuntime,
+      firmwareVersion: getString(data.firmwareVersion) ?? currentRuntime.firmwareVersion,
+      channels: getString(data.channels) ?? currentRuntime.channels,
+      thingId: getString(data.thingId) ?? currentRuntime.thingId,
+      lastSeenAt: new Date().toISOString(),
+    };
+
+    const discoveryMetadata = {
+      ...currentDiscovery,
+      source,
+      vendor: catalogSeed.vendorName,
+      family: catalogSeed.template.familyKey,
+      telemetryTopic: getString(data.telemetryTopic) ?? currentDiscovery.telemetryTopic,
+      lastPayload: data.rawPayload ?? currentDiscovery.lastPayload,
+      lastSyncedAt: new Date().toISOString(),
+    };
+
+    const metadata = stringifyJson({
+      ...currentMetadata,
+      catalog: catalogMetadata,
+      runtime: runtimeMetadata,
+      discovery: discoveryMetadata,
+    });
+
+    const payload = {
+      name: getDiscoveredDeviceName(serialNumber, data.name),
+      foreignId: getString(data.thingId) ?? existing?.foreignId ?? serialNumber,
+      serialNumber,
+      connectionType: getString(data.connectionType) ?? existing?.connectionType ?? "MQTT",
+      project: getString(data.project) ?? existing?.project ?? "ELEVATE_DISCOVERED",
+      status: getString(data.status) ?? existing?.status ?? "active",
+      metadata,
+    };
+
+    if (existing) {
+      return prisma.device.update({
+        where: { id: existing.id },
+        data: payload,
+      });
+    }
+
+    return prisma.device.create({
+      data: payload,
+    });
   },
 };

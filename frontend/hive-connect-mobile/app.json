@@ -1,13 +1,16 @@
 {
   "expo": {
     "name": "Hive Connect Mobile",
-    "slug": "hive-connect-mobile",
+    "slug": "hiveconnect",
     "scheme": "hiveconnect",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "extra": {
-      "apiBaseUrl": "http://10.0.2.2:4000/api"
+      "apiBaseUrl": "http://192.168.29.106:4000/api",
+      "eas": {
+        "projectId": "ff2cdded-5c7c-4a41-94a5-f1cabf2855cf"
+      }
     },
     "splash": {
       "resizeMode": "contain",
@@ -24,7 +27,8 @@
       "package": "com.hiveconnect.mobile",
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -37,6 +41,7 @@
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "owner": "bengaltiger"
   }
 }

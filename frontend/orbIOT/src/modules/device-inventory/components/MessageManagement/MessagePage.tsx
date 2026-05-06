@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import MessagingForm from "./MessageForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
+import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -668,32 +669,9 @@ export default function MessagingManagementPage() {
         </div>
 
         {/* ── Side Form Panel ── */}
-        {formOpen && (
-          <div className="inventory-form-shell inventory-form-theme slide-in-panel shrink-0 sticky top-8">
-            <div className="inventory-form-panel rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col" style={{ height: "calc(100vh - 120px)" }}>
-              
-              {/* Fixed Header */}
-              <div className="inventory-form-header px-7 pt-7 pb-6 border-b border-slate-100 flex items-start justify-between flex-shrink-0">
-                <div>
-                  <h2 className="text-[19px] text-slate-900 font-extrabold tracking-[-0.025em]">
-                    Create New Messaging Policy
-                  </h2>
-                  <p className="text-[12px] text-slate-500 mt-1">
-                    Enter the details for the new messaging policy
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                >
-                  <X size={15} strokeWidth={2.2} />
-                </button>
-              </div>
-
-              {/* Scrollable Form Content */}
-              <div className="inventory-form-body flex-1 overflow-y-auto px-7 py-6" style={{ maxHeight: "calc(100vh - 240px)" }}>
-                <MessagingForm
+        <RightDrawer open={formOpen} onClose={handleCancel} size="large">
+          <div className="inventory-form-body h-full overflow-y-auto px-6 py-6">
+            <MessagingForm
                   formId="messaging-form"
                   formTitle={editingId ? "Edit Policy" : "New Messaging Policy"}
                   formSubtitle={
@@ -712,11 +690,9 @@ export default function MessagingManagementPage() {
                   onBack={goToPreviousPage}
                   onSaveAndNext={handleSaveAndNext}
                   editing={!!editingId}
-                />
-              </div>
-            </div>
+            />
           </div>
-        )}
+        </RightDrawer>
       </div>
     </div>
   );

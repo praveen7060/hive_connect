@@ -23,3 +23,18 @@ export const createDeviceSchema = z.object({
 });
 
 export const updateDeviceSchema = createDeviceSchema.partial();
+
+export const discoveredDeviceSyncSchema = z.object({
+  serialNumber: z.string().min(1),
+  name: z.string().optional(),
+  connectionType: z.string().optional(),
+  project: z.string().optional(),
+  status: z.string().optional(),
+  thingId: z.string().optional(),
+  firmwareVersion: z.string().optional(),
+  channels: z.string().optional(),
+  vendorName: z.string().optional(),
+  source: z.string().optional(),
+  rawPayload: z.record(z.string(), z.unknown()).optional(),
+  telemetryTopic: z.string().optional(),
+});

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Cpu } from "lucide-react";
+import { ChevronRight, Cpu } from "lucide-react";
 import { NAV_ITEMS, type AppNavItem, type AppNavSubItem } from "../../../app/router/navigation";
 
 interface NavItemProps {
@@ -26,13 +26,14 @@ function SubNavItem({ parentPath, subItem, activePath, activeSearch }: SubNavIte
       <NavLink
         to={to}
         className={[
-          "block rounded-lg px-2.5 py-2 text-[11px] font-semibold leading-tight transition-colors duration-150",
+          "flex items-center gap-3 rounded-xl px-3 py-2 text-[12px] transition-all duration-200",
           isActive
-            ? "bg-sky-100 text-sky-800"
-            : "text-slate-600 hover:bg-white hover:text-slate-900",
+            ? "bg-slate-950/[0.05] text-slate-900"
+            : "text-slate-500 hover:bg-slate-950/[0.03] hover:text-slate-800",
         ].join(" ")}
       >
-        {subItem.label}
+        <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-slate-700" : "bg-slate-300"}`} />
+        <span className="truncate">{subItem.label}</span>
       </NavLink>
     </li>
   );
@@ -40,10 +41,9 @@ function SubNavItem({ parentPath, subItem, activePath, activeSearch }: SubNavIte
 
 function NavItem({ item, expanded, activePath, activeSearch }: NavItemProps) {
   const Icon = item.icon;
-  const shouldShowSubItems =
-    expanded &&
-    (activePath === item.path || activePath.startsWith(`${item.path}/`)) &&
-    Boolean(item.subItems?.length);
+  const active = activePath === item.path || activePath.startsWith(`${item.path}/`);
+  const hasSubItems = Boolean(item.subItems?.length);
+  const showSubItems = expanded && active && hasSubItems;
 
   return (
     <li className="relative">
@@ -52,45 +52,48 @@ function NavItem({ item, expanded, activePath, activeSearch }: NavItemProps) {
         end
         className={({ isActive }) =>
           [
-            "group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[13px] font-medium",
-            "border border-transparent transition-all duration-150 ease-out outline-none",
-            "focus-visible:ring-2 focus-visible:ring-sky-500/40",
+            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-all duration-200",
+            expanded ? "justify-start" : "justify-center px-0",
             isActive
-              ? "border-sky-200 bg-sky-50 text-slate-950"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+              ? "bg-slate-950/[0.06] text-slate-950"
+              : "text-slate-600 hover:bg-slate-950/[0.03] hover:text-slate-900",
           ].join(" ")
         }
       >
         {({ isActive }) => (
           <>
-            {isActive && (
-              <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sky-500" />
-            )}
-
-            <span className="flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
-              <Icon
-                size={18}
-                className={isActive ? "text-sky-600" : "text-slate-400 group-hover:text-slate-700"}
-              />
-            </span>
-
             <span
-              className={`
-                truncate whitespace-nowrap transition-all duration-200
-                ${expanded ? "w-auto opacity-100" : "w-0 overflow-hidden opacity-0"}
-              `}
+              className={[
+                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all duration-200",
+                isActive
+                  ? "bg-white text-slate-950 shadow-[0_4px_16px_rgba(15,23,42,0.08)]"
+                  : "bg-transparent text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800",
+              ].join(" ")}
             >
-              {item.label}
+              <Icon size={17} />
             </span>
+
+            {expanded ? (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium">{item.label}</p>
+                </div>
+                {hasSubItems ? (
+                  <ChevronRight
+                    size={14}
+                    className={`flex-shrink-0 text-slate-300 transition-transform duration-200 ${
+                      active ? "rotate-90 text-slate-500" : ""
+                    }`}
+                  />
+                ) : null}
+              </>
+            ) : null}
           </>
         )}
       </NavLink>
 
-      {shouldShowSubItems && item.subItems && (
-        <ul
-          className="subnav-scrollbar-hidden ml-7 mt-2 flex max-h-52 flex-col gap-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-2 pr-1.5"
-          role="list"
-        >
+      {showSubItems && item.subItems ? (
+        <ul className="mt-2 flex flex-col gap-1 pl-2" role="list">
           {item.subItems.map((subItem) => (
             <SubNavItem
               key={subItem.id}
@@ -101,7 +104,7 @@ function NavItem({ item, expanded, activePath, activeSearch }: NavItemProps) {
             />
           ))}
         </ul>
-      )}
+      ) : null}
     </li>
   );
 }
@@ -113,9 +116,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const updateHoverSupport = () => {
-      setCanHover(mediaQuery.matches);
-    };
+    const updateHoverSupport = () => setCanHover(mediaQuery.matches);
 
     updateHoverSupport();
     mediaQuery.addEventListener("change", updateHoverSupport);
@@ -128,13 +129,18 @@ export default function Sidebar() {
   const expanded = !canHover || active;
   const activeSearch = new URLSearchParams(location.search);
 
+  const activeItem = useMemo(
+    () =>
+      NAV_ITEMS.find((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) ??
+      NAV_ITEMS[0],
+    [location.pathname]
+  );
+
   return (
     <aside
-      className={`
-        relative flex h-screen flex-col flex-shrink-0 overflow-hidden border-r border-slate-200 bg-slate-50/80
-        transition-[width] duration-300 ease-in-out
-        ${expanded ? "w-[272px]" : "w-[76px]"}
-      `}
+      className={`relative flex h-screen flex-shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-[#fcfcfd] transition-[width] duration-300 ease-out ${
+        expanded ? "w-[308px]" : "w-[88px]"
+      }`}
       aria-label="Primary navigation"
       aria-expanded={expanded}
       onMouseEnter={() => setActive(true)}
@@ -146,38 +152,24 @@ export default function Sidebar() {
         }
       }}
     >
-      <style>{`
-        .subnav-scrollbar-hidden {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .subnav-scrollbar-hidden::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      <div className="border-b border-slate-200 px-4 pb-5 pt-5">
+        <div className={`flex items-center ${expanded ? "gap-3" : "justify-center"}`}>
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]">
+            <Cpu size={18} />
+          </div>
 
-      <div className="flex items-center gap-3 overflow-hidden border-b border-slate-200 px-4 py-5">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-slate-950 shadow-sm">
-          <Cpu size={16} className="text-white" />
-        </div>
-        <div
-          className={`overflow-hidden transition-all duration-200 ${expanded ? "w-auto opacity-100" : "w-0 opacity-0"}`}
-        >
-          <p className="whitespace-nowrap text-[13px] font-bold tracking-wide text-slate-950">
-            IoT<span className="text-slate-500">Platform</span>
-          </p>
-          <p className="whitespace-nowrap text-[10px] uppercase tracking-widest text-slate-500">
-            Control Center
-          </p>
+          {expanded ? (
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold tracking-[-0.03em] text-slate-950">
+                Hive Connect
+              </p>
+              <p className="mt-1 truncate text-[12px] text-slate-500">iot.hiveconnect.local</p>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 py-4">
-        {expanded && (
-          <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-            Navigation
-          </p>
-        )}
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
         <ul className="flex flex-col gap-1.5" role="list">
           {NAV_ITEMS.map((item) => (
             <NavItem
@@ -190,6 +182,19 @@ export default function Sidebar() {
           ))}
         </ul>
       </nav>
+
+      <div className={`border-t border-slate-200 px-4 py-4 ${expanded ? "" : "text-center"}`}>
+        {expanded ? (
+          <>
+            <p className="text-[11px] text-slate-400">Connected control plane</p>
+            <p className="mt-1 text-[12px] font-medium text-slate-700">{activeItem?.label ?? "Dashboard"}</p>
+          </>
+        ) : (
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
+            <span className="text-[11px] font-semibold">HC</span>
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

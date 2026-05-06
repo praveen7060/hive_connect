@@ -71,7 +71,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 function fmtDate(value: PrimitiveValue | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
   const parsed = new Date(String(value));
   if (Number.isNaN(parsed.getTime())) return String(value);
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -79,7 +79,7 @@ function fmtDate(value: PrimitiveValue | undefined) {
 
 function maskKey(value: PrimitiveValue | undefined) {
   const stringValue = String(value ?? "").trim();
-  if (!stringValue) return "—";
+  if (!stringValue) return "-";
   if (stringValue.length <= 8) return stringValue;
   return `${stringValue.slice(0, 4)}...${stringValue.slice(-4)}`;
 }
@@ -106,8 +106,9 @@ export default function ApplicationConsolePage() {
       rows.filter((row) => {
         const query = searchTerm.trim().toLowerCase();
         if (!query) return true;
-        return ["name", "domain", "applicationCode", "applicationType", "authType"]
-          .some((key) => String(row[key] ?? "").toLowerCase().includes(query));
+        return ["name", "domain", "applicationCode", "applicationType", "authType"].some((key) =>
+          String(row[key] ?? "").toLowerCase().includes(query)
+        );
       }),
     [rows, searchTerm]
   );
@@ -167,8 +168,8 @@ export default function ApplicationConsolePage() {
     try {
       const dataUrl = await readFileAsDataUrl(file);
       setFormValues((prev) => ({ ...prev, [field]: dataUrl }));
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Upload failed");
+    } catch (uploadError) {
+      setUploadError(uploadError instanceof Error ? uploadError.message : "Upload failed");
     }
   };
 
@@ -197,8 +198,8 @@ export default function ApplicationConsolePage() {
       }
       resetForm();
       setFormOpen(false);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Failed to save application");
+    } catch (saveError) {
+      setSubmitError(saveError instanceof Error ? saveError.message : "Failed to save application");
     }
   };
 
@@ -222,68 +223,64 @@ export default function ApplicationConsolePage() {
   };
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-6">
+      <section className="border-b border-slate-200/70 pb-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-700">
               <AppWindowBadge />
-              Application Console
+              Trusted Clients
             </div>
-            <h1 className="text-[42px] font-black tracking-[-0.04em] text-slate-950">Trusted Client Registry</h1>
-            <p className="max-w-[50rem] text-[14px] text-slate-600">
-              Create the mobile and web applications that are allowed to scan device QR codes, claim devices, and issue commands later through the console service.
+            <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-slate-900">Application Access Console</h1>
+            <p className="max-w-[50rem] text-[13px] leading-6 text-slate-500">
+              Register the mobile and web clients that are allowed to scan device QR codes, claim devices, and participate in secure device control flows.
             </p>
           </div>
 
-          <div className="grid min-w-full gap-3 sm:grid-cols-3 lg:min-w-[420px]">
-            <MetricCard label="Registered Apps" value={String(rows.length)} helper="Applications in the console" />
-            <MetricCard label="Active Clients" value={String(activeApps)} helper="Ready to claim devices" />
-            <MetricCard label="QR Ready" value={String(rows.length)} helper="Can be linked to enrollment flow" />
+          <div className="flex min-w-full flex-wrap gap-6 lg:min-w-[420px] lg:justify-end">
+            <InlineMetric label="Registered Apps" value={String(rows.length)} />
+            <InlineMetric label="Active Clients" value={String(activeApps)} />
+            <InlineMetric label="QR Ready" value={String(rows.length)} />
           </div>
         </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-[26px] border border-slate-200/80 bg-white/82 p-5 shadow-[0_18px_40px_rgba(148,163,184,0.08)] backdrop-blur-md">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="relative min-w-[240px] flex-1">
+            <div className="app-shell-search relative min-w-[240px] flex-1 px-1">
               <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search applications..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                placeholder="Search applications"
+                className="app-shell-input h-11 w-full border-0 bg-transparent pl-10 pr-4 text-[12.5px] text-slate-700 shadow-none outline-none"
               />
             </div>
 
             <button
               type="button"
               onClick={formOpen ? () => { resetForm(); setFormOpen(false); } : openCreate}
-              className={`inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13px] font-bold transition ${
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-[12px] font-medium transition ${
                 formOpen
-                  ? "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  : "bg-slate-950 text-white hover:bg-slate-800"
+                  ? "border border-white/70 bg-white/60 text-slate-600 shadow-[0_12px_28px_rgba(148,163,184,0.12)] hover:bg-white/75"
+                  : "bg-slate-900 text-white shadow-[0_18px_30px_rgba(15,23,42,0.18)] hover:bg-slate-800"
               }`}
             >
               {formOpen ? <X size={14} /> : <Plus size={14} />}
-              {formOpen ? "Close" : "Create App"}
+              {formOpen ? "Close Panel" : "New Application"}
             </button>
           </div>
 
-          {error ? (
-            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700">
-              {error}
-            </p>
-          ) : null}
+          {error ? <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700">{error}</p> : null}
           {loading ? <p className="text-[12px] text-slate-500">Loading applications...</p> : null}
 
-          <div className="overflow-hidden rounded-2xl border border-slate-100">
+          <div className="overflow-hidden rounded-[20px] border border-slate-200/70 bg-white">
             <table className="min-w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80">
+                <tr className="border-b border-slate-200/70 bg-slate-50/70">
                   {["Name", "Code", "Domain", "Type", "Auth", "App Key", "Created", "Actions"].map((label) => (
-                    <th key={label} className="whitespace-nowrap px-5 py-4 text-left text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+                    <th key={label} className="whitespace-nowrap px-5 py-4 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
                       {label}
                     </th>
                   ))}
@@ -298,17 +295,17 @@ export default function ApplicationConsolePage() {
                   </tr>
                 ) : (
                   filteredRows.map((row) => (
-                    <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
-                      <td className="px-5 py-4 font-bold text-slate-900">{String(row.name ?? "—")}</td>
-                      <td className="px-5 py-4 font-mono text-[12px] text-slate-600">{String(row.applicationCode ?? "—")}</td>
-                      <td className="px-5 py-4 text-slate-600">{String(row.domain ?? "—")}</td>
-                      <td className="px-5 py-4"><Tag value={String(row.applicationType ?? "—")} tone="blue" /></td>
-                      <td className="px-5 py-4"><Tag value={String(row.authType ?? "—")} tone="emerald" /></td>
+                    <tr key={row.id} className="motion-soft border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
+                      <td className="px-5 py-4 font-medium text-slate-900">{String(row.name ?? "-")}</td>
+                      <td className="px-5 py-4 font-mono text-[12px] text-slate-600">{String(row.applicationCode ?? "-")}</td>
+                      <td className="px-5 py-4 text-slate-600">{String(row.domain ?? "-")}</td>
+                      <td className="px-5 py-4"><Tag value={String(row.applicationType ?? "-")} tone="blue" /></td>
+                      <td className="px-5 py-4"><Tag value={String(row.authType ?? "-")} tone="emerald" /></td>
                       <td className="px-5 py-4">
                         <button
                           type="button"
                           onClick={() => row.appKey ? void copyToClipboard(String(row.id), String(row.appKey)) : undefined}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                          className="motion-soft inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10.5px] font-medium text-slate-600 hover:border-slate-300 hover:bg-white"
                         >
                           <KeyRound size={11} />
                           {copiedKey === String(row.id) ? "Copied" : maskKey(row.appKey)}
@@ -320,29 +317,29 @@ export default function ApplicationConsolePage() {
                           <button
                             type="button"
                             onClick={() => openEdit(row)}
-                            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                            className="motion-soft rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                             aria-label="Edit application"
                           >
                             <Pencil size={13} />
                           </button>
                           <button
                             type="button"
-                            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                            className="motion-soft rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                             aria-label="QR ready"
                           >
                             <QrCode size={13} />
                           </button>
                           {deleteConfirm === row.id ? (
-                            <div className="flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-2 py-1 text-[11px]">
-                              <button type="button" className="font-bold text-rose-700" onClick={() => void handleDelete(row.id)}>Yes</button>
+                            <div className="flex items-center gap-1 rounded-full border border-rose-100 bg-rose-50/80 px-2 py-1 text-[10.5px]">
+                              <button type="button" className="font-medium text-rose-700" onClick={() => void handleDelete(row.id)}>Yes</button>
                               <span className="text-rose-200">/</span>
-                              <button type="button" className="font-semibold text-slate-500" onClick={() => setDeleteConfirm(null)}>No</button>
+                              <button type="button" className="font-medium text-slate-500" onClick={() => setDeleteConfirm(null)}>No</button>
                             </div>
                           ) : (
                             <button
                               type="button"
                               onClick={() => setDeleteConfirm(row.id)}
-                              className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                              className="motion-soft rounded-full p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                               aria-label="Delete application"
                             >
                               <Trash2 size={13} />
@@ -358,22 +355,22 @@ export default function ApplicationConsolePage() {
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-[26px] border border-slate-200/80 bg-white/82 p-5 shadow-[0_18px_40px_rgba(148,163,184,0.08)] backdrop-blur-md">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[22px] font-semibold tracking-[-0.03em] text-slate-950">
+              <p className="text-[21px] font-semibold tracking-[-0.03em] text-slate-900">
                 {editingId ? "Update Application" : "Create New Application"}
               </p>
-              <p className="mt-1 text-[13px] text-slate-500">
-                Enter the details for the new application
+              <p className="mt-1 text-[12.5px] text-slate-500">
+                Enter the details for the application profile.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowAdvanced((current) => !current)}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50"
+              className="motion-soft inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-[11.5px] font-medium text-slate-600 hover:bg-white"
             >
-              Advanced Options
+              Advanced
               <ChevronDown size={14} className={`transition ${showAdvanced ? "rotate-180" : ""}`} />
             </button>
           </div>
@@ -408,8 +405,8 @@ export default function ApplicationConsolePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <UploadField
                 label="Image"
-                helper="Drop application icon here, or browse browse"
-                subHelper="Supports PNG, JPG & WEBP up to 3MB"
+                helper="Drop application artwork here, or browse"
+                subHelper="Supports PNG, JPG, and WEBP up to 3MB"
                 value={formValues.image}
                 inputId="app-image-upload"
                 accept="image/png,image/jpeg,image/webp"
@@ -418,8 +415,8 @@ export default function ApplicationConsolePage() {
 
               <UploadField
                 label="Icon"
-                helper="SVG"
-                subHelper="Upload SVG icon (max 1MB)"
+                helper="SVG icon"
+                subHelper="Upload SVG icon up to 1MB"
                 value={formValues.icon}
                 inputId="app-icon-upload"
                 accept="image/svg+xml"
@@ -442,8 +439,8 @@ export default function ApplicationConsolePage() {
             </div>
 
             {showAdvanced ? (
-              <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-slate-500">
+              <div className="space-y-4 rounded-[18px] border border-slate-200/80 bg-slate-50/70 p-4">
+                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
                   <Shield size={13} />
                   Advanced Options
                 </div>
@@ -479,23 +476,23 @@ export default function ApplicationConsolePage() {
             {uploadError ? <Alert tone="rose" message={uploadError} /> : null}
             {submitError ? <Alert tone="rose" message={submitError} /> : null}
 
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-5">
-              <button type="button" onClick={() => { resetForm(); setFormOpen(false); }} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-[13px] font-semibold text-slate-600 hover:bg-slate-50">
+            <div className="flex items-center justify-between gap-3 border-t border-white/70 pt-5">
+              <button type="button" onClick={() => { resetForm(); setFormOpen(false); }} className="motion-soft rounded-full border border-slate-200 bg-slate-50 px-5 py-3 text-[12px] font-medium text-slate-600 hover:bg-white">
                 Cancel
               </button>
-              <button type="submit" className="rounded-xl bg-slate-950 px-5 py-3 text-[13px] font-bold text-white hover:bg-slate-800">
+              <button type="submit" className="motion-soft rounded-full bg-slate-900 px-5 py-3 text-[12px] font-medium text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] hover:-translate-y-0.5 hover:bg-slate-800">
                 {editingId ? "Save Changes" : "Create Application"}
               </button>
             </div>
           </form>
 
-          <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-            <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-sky-700">
+          <div className="mt-6 rounded-[18px] border border-sky-200/80 bg-sky-50/80 p-4">
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-sky-700">
               <RefreshCw size={13} />
-              Console Service Notes
+              Console Notes
             </div>
-            <p className="mt-2 text-[13px] text-sky-800">
-              Each application receives a generated server `appKey` from the backend. That key is separate from the access key and secret key fields you configure here for your own client integration settings.
+            <p className="mt-2 text-[12.5px] leading-6 text-sky-800">
+              Each application receives a generated server app key from the backend. That key is separate from the access key and secret key fields you configure here for client integration settings.
             </p>
           </div>
         </div>
@@ -504,8 +501,7 @@ export default function ApplicationConsolePage() {
   );
 }
 
-const inputClass =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100";
+const inputClass = "app-shell-input w-full px-4 text-[12.5px] text-slate-700 outline-none transition";
 
 function Field({
   label,
@@ -518,7 +514,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-[13px] font-semibold text-slate-700">
+      <span className="text-[12px] font-medium text-slate-600">
         {label}
         {required ? <span className="ml-1 text-rose-500">*</span> : null}
       </span>
@@ -547,14 +543,14 @@ function UploadField({
   const hasValue = Boolean(value);
   return (
     <div className="space-y-1.5">
-      <span className="text-[13px] font-semibold text-slate-700">{label}</span>
-      <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+      <span className="text-[12px] font-medium text-slate-600">{label}</span>
+      <div className="rounded-[24px] border border-dashed border-white/75 bg-white/45 px-4 py-6 text-center shadow-[0_14px_30px_rgba(148,163,184,0.1)] backdrop-blur-xl">
         <input id={inputId} type="file" accept={accept} className="hidden" onChange={onChange} />
         <label htmlFor={inputId} className="cursor-pointer">
-          <p className="text-[13px] text-slate-600">{helper}</p>
+          <p className="text-[12.5px] text-slate-600">{helper}</p>
           <p className="mt-1 text-[11px] text-slate-400">{subHelper}</p>
           {hasValue ? (
-            <p className="mt-3 inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+            <p className="mt-3 inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-50/70 px-3 py-1 text-[10.5px] font-medium text-emerald-700">
               Uploaded
             </p>
           ) : null}
@@ -564,27 +560,26 @@ function UploadField({
   );
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string; helper: string }) {
+function InlineMetric({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-3 text-[32px] font-black tracking-[-0.04em] text-slate-950">{value}</p>
-      <p className="mt-2 text-[12px] text-slate-600">{helper}</p>
-    </article>
+    <div className="min-w-[110px]">
+      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-slate-900">{value}</p>
+    </div>
   );
 }
 
 function Tag({ value, tone }: { value: string; tone: "blue" | "emerald" }) {
   const tones = {
-    blue: "border-blue-200 bg-blue-50 text-blue-700",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    blue: "border-blue-200 bg-blue-50/80 text-blue-700",
+    emerald: "border-emerald-200 bg-emerald-50/80 text-emerald-700",
   };
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tones[tone]}`}>{value}</span>;
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10.5px] font-medium ${tones[tone]}`}>{value}</span>;
 }
 
 function Alert({ tone, message }: { tone: "rose"; message: string }) {
   const toneClass = tone === "rose" ? "border-rose-200 bg-rose-50 text-rose-700" : "";
-  return <p className={`rounded-xl border px-4 py-3 text-[12px] ${toneClass}`}>{message}</p>;
+  return <p className={`rounded-2xl border px-4 py-3 text-[12px] ${toneClass}`}>{message}</p>;
 }
 
 function AppWindowBadge() {

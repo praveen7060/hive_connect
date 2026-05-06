@@ -1,8 +1,34 @@
 import { prisma } from '../db/prisma'
-import { saveSwitchStatus } from './switch.service'
+import { syncDiscoveredDeviceToOrbit } from './orbit-sync.service'
 import { handleSmartMeterUpdate, isSmartMeter } from './smartmeter.service'
+import { saveSwitchStatus } from './switch.service'
 
-export async function handleUpdate(payload: any) {
+function extractThingId(topic: string | undefined) {
+  if (!topic) {
+    return undefined
+  }
+
+  const match = /^\$aws\/things\/([^/]+)\/update$/i.exec(topic.trim())
+  return match?.[1]
+}
+
+function inferDeviceType(deviceId: string) {
+  if (deviceId.startsWith('IOTIQ4SC_')) {
+    return 'SWITCH_4CH'
+  }
+
+  if (deviceId.startsWith('IOTIQDC2_')) {
+    return 'DONGLE_2CH'
+  }
+
+  if (deviceId.startsWith('IOTIQSM_')) {
+    return 'SMART_METER'
+  }
+
+  return 'SINGLE'
+}
+
+export async function handleUpdate(payload: any, topic?: string) {
   const {
     deviceid,
     climate,
@@ -10,60 +36,70 @@ export async function handleUpdate(payload: any) {
     switch_no,
     status,
     channels,
-    temp,
-    fault
+    firmware_version
   } = payload
 
   try {
     if (typeof deviceid !== 'string' || !deviceid.trim()) {
-      console.warn('⚠️ Ignoring update payload without valid deviceid:', payload)
+      console.warn('Ignoring update payload without valid deviceid:', payload)
       return
     }
 
-    // Check if this is a smart meter device
+    const thingId = extractThingId(topic)
+
     if (isSmartMeter(deviceid)) {
       await handleSmartMeterUpdate(payload)
+      await syncDiscoveredDeviceToOrbit({
+        serialNumber: deviceid,
+        name: deviceid,
+        connectionType: 'MQTT',
+        project: 'ELEVATE_DISCOVERED',
+        status: 'active',
+        thingId,
+        firmwareVersion: typeof firmware_version === 'string' ? firmware_version : undefined,
+        vendorName: 'ELEVATE',
+        source: 'connect-admin',
+        rawPayload: payload,
+        telemetryTopic: topic
+      })
       return
     }
 
-    // First, ensure device exists (auto-create if needed)
     let device = await prisma.device.findUnique({
       where: { deviceId: deviceid }
     })
 
     if (!device) {
-      console.warn(`⚠️ Device not found: ${deviceid}. Auto-creating...`)
-      
-      // Auto-detect device type
-      let deviceType = 'SINGLE'
-      if (deviceid.startsWith('IOTIQ4SC_')) {
-        deviceType = 'SWITCH_4CH'
-      } else if (deviceid.startsWith('IOTIQDC2_')) {
-        deviceType = 'DONGLE_2CH'
-      }
-
-      // Create device
+      console.warn(`Device not found: ${deviceid}. Auto-creating...`)
       device = await prisma.device.create({
         data: {
           deviceId: deviceid,
-          deviceType
+          deviceType: inferDeviceType(deviceid),
+          ...(thingId ? { thingId } : {}),
+          ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
         }
       })
-      console.log(`✅ Device auto-created: ${deviceid}`)
+      console.log(`Device auto-created: ${deviceid}`)
+    } else if (thingId || typeof firmware_version === 'string') {
+      device = await prisma.device.update({
+        where: { deviceId: deviceid },
+        data: {
+          ...(thingId ? { thingId } : {}),
+          ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
+        }
+      })
     }
 
-    /* ---------------- Channel Configuration (Dongle) ---------------- */
     if (channels) {
-      await prisma.device.update({
+      device = await prisma.device.update({
         where: { deviceId: deviceid },
         data: { channels }
       })
-      console.log(`🔧 Channels configured: ${deviceid} → ${channels}`)
+      console.log(`Channels configured: ${deviceid} -> ${channels}`)
     }
 
-    /* ---------------- Climate Data ---------------- */
     if (climate) {
-      const [temperature, humidity, sunlight] = climate.split('/')
+      const [temperature, humidity, sunlight] = String(climate).split('/')
 
       await prisma.deviceClimate.create({
         data: {
@@ -75,9 +111,8 @@ export async function handleUpdate(payload: any) {
       })
     }
 
-    /* ---------------- Energy Data ---------------- */
     if (energy) {
-      const [voltage, current, power, unit] = energy.split('/')
+      const [voltage, current, power, unit] = String(energy).split('/')
 
       await prisma.deviceEnergy.create({
         data: {
@@ -90,17 +125,29 @@ export async function handleUpdate(payload: any) {
       })
     }
 
-    /* ---------------- Switch Update ---------------- */
     if (switch_no && status) {
-      const switchNo = Number(
-        String(switch_no).replace(/[^\d]/g, '')
-      )
-
+      const switchNo = Number(String(switch_no).replace(/[^\d]/g, ''))
       await saveSwitchStatus(deviceid, switchNo, status)
     }
 
-    console.log('🔄 Update saved:', deviceid)
+    console.log('Update saved:', deviceid)
+
+    await syncDiscoveredDeviceToOrbit({
+      serialNumber: deviceid,
+      name: deviceid,
+      connectionType: 'MQTT',
+      project: 'ELEVATE_DISCOVERED',
+      status: 'active',
+      thingId: device.thingId ?? thingId,
+      firmwareVersion:
+        typeof firmware_version === 'string' ? firmware_version : device.firmwareVersion ?? undefined,
+      channels: channels ?? device.channels ?? undefined,
+      vendorName: 'ELEVATE',
+      source: 'connect-admin',
+      rawPayload: payload,
+      telemetryTopic: topic
+    })
   } catch (error) {
-    console.error('❌ Error handling update:', error)
+    console.error('Error handling update:', error)
   }
 }

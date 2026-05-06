@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../../middleware/error.middleware";
-import { createDeviceSchema, updateDeviceSchema } from "./device.schema";
+import { createDeviceSchema, discoveredDeviceSyncSchema, updateDeviceSchema } from "./device.schema";
 import { deviceService } from "./device.service";
 
 export const deviceController = {
@@ -24,6 +24,12 @@ export const deviceController = {
     try {
       const payload = updateDeviceSchema.parse(req.body);
       res.json(await deviceService.update(req.params.id, payload));
+    } catch (err) { next(err); }
+  },
+  async upsertDiscovered(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = discoveredDeviceSyncSchema.parse(req.body);
+      res.status(201).json(await deviceService.upsertDiscovered(payload));
     } catch (err) { next(err); }
   },
   async remove(req: Request, res: Response, next: NextFunction) {

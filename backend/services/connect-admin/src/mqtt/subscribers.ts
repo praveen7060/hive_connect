@@ -60,7 +60,7 @@ function routeMessage(topic: string, data: any) {
   }
 
   if (topic.includes('/update')) {
-    handleUpdate(data)
+    handleUpdate(data, topic)
     return
   }
 

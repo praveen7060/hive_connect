@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import ItemForm from "./ItemForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
+import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -764,48 +765,30 @@ export default function ItemManagementPage() {
         </div>
 
         {/* Side Form Panel - Using ItemForm */}
-        {formOpen && (
-          <div className="inventory-form-shell inventory-form-theme slide-in-panel shrink-0 sticky top-8">
-            <div className="inventory-form-panel rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
-              {/* Panel header */}
-              <div className="inventory-form-header px-7 pt-7 pb-6 border-b border-slate-100 flex items-start justify-between">
-                <div>
-                  <h2 className="text-[19px] text-slate-900" style={{ fontWeight: 800, letterSpacing: "-0.025em" }}>
-                    {editingId ? "Edit Item" : "New Item"}
-                  </h2>
-                  <p className="text-[12px] text-slate-500 mt-1">
-                    {editingId ? "Update the item details below." : "Create an inventory item and map it to an item type."}
-                  </p>
-                </div>
-                <button type="button" onClick={handleCancel} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                  <X size={15} strokeWidth={2.2} />
-                </button>
-              </div>
-
-              {/* ItemForm Component */}
-              <div className="inventory-form-body px-7 py-5 max-h-[calc(100vh-250px)] overflow-y-auto">
-                <ItemForm
-                  formId="item-form"
-                  formTitle=""
-                  formSubtitle=""
-                  editing={!!editingId}
-                  values={itemFormValues}
-                  vendorOptions={vendorOptions}
-                  itemTypeOptions={itemTypeOptions}
-                  communicationPolicyOptions={communicationPolicyOptions}
-                  vendorsLoading={vendorsLoading}
-                  itemTypesLoading={itemTypesLoading}
-                  communicationPoliciesLoading={communicationPoliciesLoading}
-                  onValueChange={handleItemFormValueChange}
-                  onSubmit={handleItemFormSubmit}
-                  onCancel={handleCancel}
-                  onBack={goToPreviousPage}
-                  onSaveAndNext={handleSaveAndNext}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <RightDrawer open={formOpen} onClose={handleCancel} size="large">
+          <ItemForm
+            formId="item-form"
+            formTitle={editingId ? "Edit Item" : "New Item"}
+            formSubtitle={
+              editingId
+                ? "Update the item details below."
+                : "Create an inventory item and map it to an item type."
+            }
+            editing={!!editingId}
+            values={itemFormValues}
+            vendorOptions={vendorOptions}
+            itemTypeOptions={itemTypeOptions}
+            communicationPolicyOptions={communicationPolicyOptions}
+            vendorsLoading={vendorsLoading}
+            itemTypesLoading={itemTypesLoading}
+            communicationPoliciesLoading={communicationPoliciesLoading}
+            onValueChange={handleItemFormValueChange}
+            onSubmit={handleItemFormSubmit}
+            onCancel={handleCancel}
+            onBack={goToPreviousPage}
+            onSaveAndNext={handleSaveAndNext}
+          />
+        </RightDrawer>
       </div>
     </div>
   );

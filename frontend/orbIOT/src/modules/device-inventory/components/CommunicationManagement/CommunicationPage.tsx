@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import CommunicationForm from './CommunicationForm';
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
+import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -622,31 +623,29 @@ export default function CommunicationManagementPage() {
           </div>
 
           {/* ── Side Form Panel ── */}
-          {formOpen && (
-            <div className="inventory-form-shell inventory-form-theme slide-in-panel shrink-0 sticky top-8">
-              <CommunicationForm
-                formId="communication-policy-form"
-                formTitle={editingId ? "Edit Policy" : "Create Communication Policy"}
-                formSubtitle={editingId 
-                  ? "Update the policy details below." 
-                  : "Enter details in sequence before moving to the next step."}
-                editing={!!editingId}
-                values={formValues}
-                itemTypeOptions={itemTypeOptions}
-                itemTypesLoading={itemTypesLoading}
-                onValueChange={(key, value) => 
-                  setFormValues((prev) => ({ ...prev, [key]: value }))
-                }
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSubmit();
-                }}
-                onCancel={handleCancel}
-                onBack={goToPreviousPage}
-                onSaveAndNext={handleSaveAndNext}
-              />
-            </div>
-          )}
+          <RightDrawer open={formOpen} onClose={handleCancel}>
+            <CommunicationForm
+              formId="communication-policy-form"
+              formTitle={editingId ? "Edit Policy" : "Create Communication Policy"}
+              formSubtitle={editingId 
+                ? "Update the policy details below." 
+                : "Enter details in sequence before moving to the next step."}
+              editing={!!editingId}
+              values={formValues}
+              itemTypeOptions={itemTypeOptions}
+              itemTypesLoading={itemTypesLoading}
+              onValueChange={(key, value) => 
+                setFormValues((prev) => ({ ...prev, [key]: value }))
+              }
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              onCancel={handleCancel}
+              onBack={goToPreviousPage}
+              onSaveAndNext={handleSaveAndNext}
+            />
+          </RightDrawer>
         </div>
       </div>
     </div>

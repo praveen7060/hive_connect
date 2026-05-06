@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { FormFieldConfig, ManagementFormProps } from "../management/types";
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
 
 const MESSAGE_TYPE_OPTIONS = [
   "ON_OFF",
@@ -52,6 +53,8 @@ interface MessagingFormProps extends ManagementFormProps {
 
 export default function MessagingForm({
   formId,
+  formTitle,
+  formSubtitle,
   values,
   itemTypeOptions,
   communicationPolicyOptions,
@@ -97,6 +100,23 @@ export default function MessagingForm({
 
   return (
     <form id={formId} onSubmit={handleSubmitForm} className="inventory-form-theme space-y-5">
+      <div className="mb-1 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#0f2554]">
+            {formTitle}
+          </h2>
+          <p className="mt-1 text-sm text-[#5f6f8a]">{formSubtitle}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          aria-label="Close"
+        >
+          <X size={18} strokeWidth={2} />
+        </button>
+      </div>
+
       {/* Item Type - Always visible */}
       <div className="space-y-2">
         <label className="flex flex-col gap-1.5">

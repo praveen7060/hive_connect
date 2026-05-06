@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../middleware/error.middleware";
 import { iotService } from "../iot-orchestration/iot.service";
+import { uploadEnrollmentQrSvgToS3 } from "./qrAssetStorage.service";
 import type { z } from "zod";
 import {
   claimEnrollmentQrSchema,
@@ -205,8 +206,26 @@ export const applicationConsoleService = {
       },
     });
 
+    const asset = await uploadEnrollmentQrSvgToS3({
+      deviceRecordId: device.id,
+      enrollmentId: record.id,
+      token,
+      svg: qrSvg,
+    });
+    const storedPayloadObject = {
+      ...qrPayloadObject,
+      asset,
+    };
+
+    const updatedRecord = await prisma.deviceEnrollmentQr.update({
+      where: { id: record.id },
+      data: {
+        payload: JSON.stringify(storedPayloadObject),
+      },
+    });
+
     return {
-      enrollment: record,
+      enrollment: updatedRecord,
       device: {
         id: device.id,
         name: device.name,
@@ -214,9 +233,10 @@ export const applicationConsoleService = {
       },
       qr: {
         token,
-        payload: qrPayloadObject,
+        payload: storedPayloadObject,
         deepLink,
         svg: qrSvg,
+        asset,
       },
     };
   },

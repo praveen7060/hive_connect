@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import ParameterForm from "./ParameterForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
+import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -596,7 +597,7 @@ export default function ParameterManagementPage() {
         </div>
 
         {/* ── Side Form Panel ── */}
-        {formOpen && (
+        <RightDrawer open={formOpen} onClose={handleCancel}>
           <ParameterForm
             formId="parameter-form"
             formTitle={editingId ? "Edit Parameter" : "New Parameter"}
@@ -616,7 +617,7 @@ export default function ParameterManagementPage() {
             onSaveAndNext={handleSaveAndNext}
             onBack={goToPreviousPage}
           />
-        )}
+        </RightDrawer>
       </div>
     </div>
   );
