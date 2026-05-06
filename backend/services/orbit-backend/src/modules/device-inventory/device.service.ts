@@ -1,7 +1,10 @@
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../middleware/error.middleware";
-import { ConnectAdminHttpError, connectAdminClient } from "../iot-orchestration/connectAdmin.client";
-import { ensureElevateCatalog } from "./elevateCatalog";
+import {
+  ConnectAdminHttpError,
+  connectAdminClient,
+  getConnectAdminBaseUrl,
+} from "../iot-orchestration/connectAdmin.client";
 import type { z } from "zod";
 import { createDeviceSchema, discoveredDeviceSyncSchema, updateDeviceSchema } from "./device.schema";
 
@@ -141,10 +144,12 @@ export const deviceService = {
     }
 
     const iotMetadata = parseIotMetadata(device.metadata);
+    const connectAdminDeviceId = getString(iotMetadata?.deviceId);
     const thingId = getString(iotMetadata?.thingId) ?? getString(device.foreignId);
     const thingName = getString(iotMetadata?.thingName) ?? thingId;
     const s3Prefix = extractS3Prefix(iotMetadata, thingName);
-    const deprovisionDeviceId = thingId ?? getString(device.serialNumber);
+    const deprovisionDeviceId =
+      connectAdminDeviceId ?? thingId ?? getString(device.serialNumber);
 
     if (deprovisionDeviceId || thingName) {
       try {
@@ -162,7 +167,7 @@ export const deviceService = {
         } else if (isConnectAdminUnavailableError(error)) {
           throw new ApiError(
             503,
-            "Connect-admin service is unavailable. Ensure connect-admin is running on http://localhost:4000."
+            `Connect-admin service is unavailable. Ensure connect-admin is running on ${getConnectAdminBaseUrl()}.`
           );
         } else {
           throw new ApiError(500, "Internal orchestration failure");

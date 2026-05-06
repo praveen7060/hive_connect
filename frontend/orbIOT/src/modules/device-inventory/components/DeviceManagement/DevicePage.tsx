@@ -117,6 +117,17 @@ function generateProvisioningUuid(): string {
   return `device-${Date.now().toString(16)}-${randomPart}`;
 }
 
+function generateThingTypeName(deviceType: string): string {
+  const normalizedType = deviceType
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9:_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-_:]+|[-_:]+$/g, "");
+
+  return `ccms-${normalizedType || "single"}`;
+}
+
 function sanitizeAwsIotAttributeValue(value: string): string {
   return value
     .trim()
@@ -309,8 +320,10 @@ function buildMergedMetadata(
       : undefined;
 
   base.iot = {
+    deviceId: provisioningData.device?.deviceId ?? null,
     thingId,
     thingName: provisioning?.thingName ?? thingId,
+    thingTypeName: provisioning?.thingTypeName ?? null,
     certificateId: provisioning?.certificateId ?? null,
     certificateArn: provisioning?.certificateArn ?? null,
     region: provisioning?.region ?? null,
@@ -573,7 +586,9 @@ export default function DeviceManagementPage() {
           updatedAt: now,
         });
       } else {
-        const thingName = generateProvisioningUuid();
+        const provisionDeviceType = "SINGLE";
+        const provisionDeviceId = `dev-${generateProvisioningUuid()}`;
+        const thingName = `thing-${generateProvisioningUuid()}`;
         const catalogMetadata = buildCatalogMetadata(formValues, thingName);
         const provisioningConfig = parseProvisioningConfig(catalogMetadata, {
           name,
@@ -581,7 +596,14 @@ export default function DeviceManagementPage() {
           connectionType,
           fallbackThingName: thingName,
         });
-        const provisioningData = await deviceInventoryApi.iot.provisionThing(provisioningConfig);
+        const effectiveDeviceType = provisioningConfig.deviceType ?? provisionDeviceType;
+        const provisioningData = await deviceInventoryApi.iot.provisionThing({
+          ...provisioningConfig,
+          deviceId: provisioningConfig.deviceId ?? provisionDeviceId,
+          deviceType: effectiveDeviceType,
+          thingName: provisioningConfig.thingName ?? thingName,
+          thingTypeName: generateThingTypeName(effectiveDeviceType),
+        });
 
         const thingId =
           provisioningData.device?.thingId ??

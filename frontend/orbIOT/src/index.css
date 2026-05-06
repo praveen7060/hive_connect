@@ -1,23 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --inventory-bg: #eef7ff;
-  --inventory-surface: #ffffff;
-  --inventory-text: #0f3f66;
-  --inventory-muted: #5f84a8;
-  --inventory-border: #c9def2;
-  --inventory-primary: #1e76c9;
-  --inventory-primary-hover: #1763aa;
-  --inventory-accent: #2f8cff;
-  --shell-bg: rgba(255, 255, 255, 0.58);
-  --shell-bg-strong: rgba(255, 255, 255, 0.82);
-  --shell-border: rgba(255, 255, 255, 0.66);
-  --shell-text: #0f172a;
-  --shell-muted: #64748b;
-  --shell-soft: #94a3b8;
+  --iotiq-bg: #eaf3ff;
+  --iotiq-bg-soft: #f2f8ff;
+  --iotiq-surface: #f8fbff;
+  --iotiq-surface-alt: #edf5ff;
+  --iotiq-text: #0f172a;
+  --iotiq-muted: #475569;
+  --iotiq-border: #cfe0f5;
+  --iotiq-primary: #0a6ecf;
+  --iotiq-primary-hover: #095db0;
+  --iotiq-accent: #0b8b8f;
 
-  color: #0f172a;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: var(--iotiq-text);
+  background: var(--iotiq-bg);
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.65;
   font-weight: 400;
@@ -42,12 +38,15 @@ body,
 body {
   margin: 0;
   min-width: 320px;
-  color: #0f172a;
+  color: var(--iotiq-text);
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-  letter-spacing: -0.012em;
-  background: transparent;
+  font-size: 16px;
+  line-height: 1.75;
+  letter-spacing: -0.011em;
+  background:
+    radial-gradient(1200px 520px at 100% -10%, #cfe5ff 0%, rgba(207, 229, 255, 0) 62%),
+    radial-gradient(900px 420px at -10% 100%, #dff0ff 0%, rgba(223, 240, 255, 0) 64%),
+    var(--iotiq-bg);
 }
 
 a {
@@ -139,27 +138,27 @@ p {
 }
 
 .inventory-page-theme {
-  background: linear-gradient(180deg, #f8fafc 0%, #f3f6fb 100%);
-  color: var(--inventory-text);
+  background: linear-gradient(180deg, var(--iotiq-bg-soft) 0%, #edf5ff 100%);
+  color: var(--iotiq-text);
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 .inventory-page-theme h1,
 .inventory-page-theme h2,
 .inventory-page-theme h3 {
-  color: #0f172a;
-  font-weight: 620 !important;
+  color: #12263a;
+  font-weight: 700 !important;
 }
 
 .inventory-page-theme .inventory-kpi-card {
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--iotiq-border);
+  background: linear-gradient(180deg, #fafdff 0%, #f2f8ff 100%);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 .inventory-page-theme .inventory-kpi-value {
   color: #0f172a !important;
-  font-weight: 650 !important;
+  font-weight: 700 !important;
   letter-spacing: -0.03em !important;
 }
 
@@ -171,8 +170,8 @@ p {
 .inventory-form-theme button[class*="bg-slate-800"],
 .inventory-form-theme button[class*="bg-blue-600"],
 .inventory-form-theme button[class*="bg-blue-700"] {
-  background: linear-gradient(180deg, #2f8cff 0%, #2478df 100%) !important;
-  border-color: #2b83ef !important;
+  background: var(--iotiq-primary) !important;
+  border-color: var(--iotiq-primary) !important;
   color: #ffffff !important;
 }
 
@@ -184,203 +183,87 @@ p {
 .inventory-form-theme button[class*="bg-slate-800"]:hover,
 .inventory-form-theme button[class*="bg-blue-600"]:hover,
 .inventory-form-theme button[class*="bg-blue-700"]:hover {
-  background: linear-gradient(180deg, #2681ef 0%, #1f6ed0 100%) !important;
+  background: var(--iotiq-primary-hover) !important;
 }
 
 .inventory-page-theme button[class*="border-slate-300"][class*="bg-white"],
 .inventory-page-theme button[class*="border-slate-200"][class*="bg-white"],
 .inventory-form-theme button[class*="border-slate-300"][class*="bg-white"],
 .inventory-form-theme button[class*="border-slate-200"][class*="bg-white"] {
-  border-color: #bdd8f2 !important;
-  background: #f4faff !important;
-  color: #246ba2 !important;
+  border-color: var(--iotiq-border) !important;
+  background: #f2f8ff !important;
+  color: #1e293b !important;
 }
 
 .inventory-page-theme [class*="text-slate-900"],
 .inventory-page-theme [class*="text-slate-800"],
 .inventory-page-theme [class*="text-gray-900"] {
-  color: #0f172a !important;
+  color: #12263a !important;
 }
 
 .inventory-page-theme [class*="text-slate-600"],
 .inventory-page-theme [class*="text-slate-500"],
 .inventory-page-theme [class*="text-gray-600"],
 .inventory-page-theme [class*="text-gray-500"] {
-  color: #64748b !important;
+  color: #5b6b7f !important;
 }
 
 .inventory-form-theme {
-  color: #0f172a;
+  color: #12263a;
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 .inventory-form-theme .inventory-form-panel {
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 22px;
-  background: #ffffff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--iotiq-border);
+  border-radius: 16px;
+  background: var(--iotiq-surface);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 .inventory-form-theme .inventory-form-header {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--iotiq-border);
+  background: #eff6ff;
   padding: 1.5rem 1.75rem 1.1rem;
 }
 
 .inventory-form-theme .inventory-form-body {
-  background: rgba(255, 255, 255, 0.98);
+  background: #f9fcff;
   padding: 1.25rem 1.75rem 1.5rem;
 }
 
 .inventory-form-theme .inventory-form-footer {
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
-  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid var(--iotiq-border);
+  background: #eff6ff;
   padding: 1rem 1.75rem;
 }
 
 .inventory-form-theme h2,
 .inventory-form-theme h3 {
-  color: #0f172a;
-  font-weight: 620 !important;
+  color: #12263a;
+  font-weight: 700 !important;
 }
 
 .inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .inventory-form-theme select,
 .inventory-form-theme textarea {
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 1);
-  color: #0f172a;
-  font-size: 0.8rem;
-  font-weight: 400;
-  box-shadow: none;
+  border: 1px solid var(--iotiq-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 0.84rem;
 }
 
 .inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
 .inventory-form-theme select:focus,
 .inventory-form-theme textarea:focus {
-  border-color: #94a3b8;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+  border-color: #78a7d4;
+  box-shadow: 0 0 0 2px rgba(10, 110, 207, 0.14);
   outline: none;
 }
 
 .inventory-form-theme label > span {
-  color: #475569;
-  font-weight: 450;
-}
-
-.inventory-drawer-panel {
-  animation: inventoryDrawerSlide 260ms cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-
-.inventory-drawer-panel .inventory-form-shell,
-.inventory-drawer-panel .inventory-form-theme {
-  height: 100%;
-  max-width: 100%;
-}
-
-.inventory-drawer-panel .inventory-form-panel {
-  height: 100% !important;
-  max-height: 100% !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.inventory-drawer-panel .inventory-form-header,
-.inventory-drawer-panel .inventory-form-body,
-.inventory-drawer-panel .inventory-form-footer {
-  background: transparent !important;
-}
-
-.inventory-drawer-panel .inventory-form-header {
-  padding: 1.5rem 1.5rem 1rem !important;
-}
-
-.inventory-drawer-panel .inventory-form-body {
-  padding: 1rem 1.5rem 1.25rem !important;
-}
-
-.inventory-drawer-panel .inventory-form-footer {
-  padding: 0.9rem 1.5rem 1.1rem !important;
-}
-
-@keyframes inventoryDrawerSlide {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.app-shell-card {
-  border: 1px solid rgba(226, 232, 240, 0.82);
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 18px 45px rgba(148, 163, 184, 0.1);
-  backdrop-filter: blur(16px);
-}
-
-.app-shell-input,
-.app-shell-select,
-.app-shell-textarea,
-.inventory-page-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-.inventory-page-theme select,
-.inventory-page-theme textarea {
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  background: rgba(255, 255, 255, 0.68);
-  color: var(--shell-text);
-  box-shadow: 0 12px 28px rgba(148, 163, 184, 0.09);
-  backdrop-filter: blur(18px);
-}
-
-.app-shell-input,
-.app-shell-select,
-.inventory-page-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-.inventory-page-theme select {
-  min-height: 46px;
-  border-radius: 18px;
-  font-size: 0.82rem;
-  font-weight: 400;
-}
-
-.app-shell-textarea,
-.inventory-page-theme textarea {
-  border-radius: 18px;
-  font-size: 0.82rem;
-  font-weight: 400;
-}
-
-.app-shell-input:focus,
-.app-shell-select:focus,
-.app-shell-textarea:focus,
-.inventory-page-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
-.inventory-page-theme select:focus,
-.inventory-page-theme textarea:focus {
-  border-color: rgba(59, 130, 246, 0.55);
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.11), 0 14px 32px rgba(148, 163, 184, 0.13);
-  outline: none;
-}
-
-.app-shell-search {
-  border: 1px solid rgba(226, 232, 240, 0.88);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 24px rgba(148, 163, 184, 0.08);
-  backdrop-filter: blur(10px);
-}
-
-.motion-soft {
-  transition:
-    transform 180ms ease,
-    opacity 180ms ease,
-    background-color 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    color 180ms ease;
+  color: #334155;
+  font-weight: 600;
 }
 
 .inventory-form-theme [class*="text-[#0f2554]"],
@@ -388,12 +271,12 @@ p {
 .inventory-form-theme [class*="text-[#25334d]"],
 .inventory-form-theme [class*="text-slate-900"],
 .inventory-form-theme [class*="text-slate-700"] {
-  color: #1c629e !important;
+  color: #1f2937 !important;
 }
 
 .inventory-form-theme button[class*="bg-[#0f2554]"],
 .inventory-form-theme button[class*="bg-[#3d95f5]"] {
-  background: linear-gradient(180deg, #2f8cff 0%, #2478df 100%) !important;
-  border-color: #2b83ef !important;
+  background: var(--iotiq-primary) !important;
+  border-color: var(--iotiq-primary) !important;
   color: #ffffff !important;
 }

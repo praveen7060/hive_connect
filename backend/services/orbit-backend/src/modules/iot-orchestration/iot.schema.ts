@@ -4,6 +4,7 @@ export const provisionThingSchema = z.object({
   deviceId: z.string().min(1),
   deviceType: z.string().min(1).optional(),
   thingName: z.string().min(1).optional(),
+  thingTypeName: z.string().min(1).optional(),
   policyName: z.string().min(1).optional(),
   attributes: z.record(z.string(), z.string()).optional(),
   s3Prefix: z.string().optional(),

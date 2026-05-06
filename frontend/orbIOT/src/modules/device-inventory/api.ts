@@ -33,6 +33,7 @@ export interface IotProvisionRequest {
   deviceId: string;
   deviceType?: DeviceType;
   thingName?: string;
+  thingTypeName?: string;
   policyName?: string;
   attributes?: Record<string, string>;
   s3Prefix?: string;
@@ -50,6 +51,7 @@ export interface IotProvisionResponse {
   };
   provisioning: null | {
     thingName: string;
+    thingTypeName: string | null;
     certificateId: string;
     certificateArn: string;
     region: string;

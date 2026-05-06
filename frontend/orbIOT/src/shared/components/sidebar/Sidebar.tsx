@@ -28,8 +28,8 @@ function SubNavItem({ parentPath, subItem, activePath, activeSearch }: SubNavIte
         className={[
           "flex items-center gap-3 rounded-xl px-3 py-2 text-[12px] transition-all duration-200",
           isActive
-            ? "bg-slate-950/[0.05] text-slate-900"
-            : "text-slate-500 hover:bg-slate-950/[0.03] hover:text-slate-800",
+            ? "bg-blue-50 text-blue-700"
+            : "text-slate-600 hover:bg-white hover:text-slate-900",
         ].join(" ")}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-slate-700" : "bg-slate-300"}`} />
@@ -52,16 +52,28 @@ function NavItem({ item, expanded, activePath, activeSearch }: NavItemProps) {
         end
         className={({ isActive }) =>
           [
-            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-all duration-200",
-            expanded ? "justify-start" : "justify-center px-0",
+            "group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[13px] font-medium",
+            "border border-transparent transition-all duration-150 ease-out outline-none",
+            "focus-visible:ring-2 focus-visible:ring-blue-500/35",
             isActive
-              ? "bg-slate-950/[0.06] text-slate-950"
-              : "text-slate-600 hover:bg-slate-950/[0.03] hover:text-slate-900",
+              ? "border-blue-200 bg-blue-50/80 text-slate-950"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
           ].join(" ")
         }
       >
         {({ isActive }) => (
           <>
+            {isActive && (
+              <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-600" />
+            )}
+
+            <span className="flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
+              <Icon
+                size={17}
+                className={isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-700"}
+              />
+            </span>
+
             <span
               className={[
                 "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all duration-200",
@@ -138,9 +150,11 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`relative flex h-screen flex-shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-[#fcfcfd] transition-[width] duration-300 ease-out ${
-        expanded ? "w-[308px]" : "w-[88px]"
-      }`}
+      className={`
+        relative flex h-screen flex-col flex-shrink-0 overflow-hidden border-r border-blue-200/70 bg-[#f4f9ff]/90
+        transition-[width] duration-300 ease-in-out
+        ${expanded ? "w-[276px]" : "w-[80px]"}
+      `}
       aria-label="Primary navigation"
       aria-expanded={expanded}
       onMouseEnter={() => setActive(true)}
@@ -158,14 +172,19 @@ export default function Sidebar() {
             <Cpu size={18} />
           </div>
 
-          {expanded ? (
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold tracking-[-0.03em] text-slate-950">
-                Hive Connect
-              </p>
-              <p className="mt-1 truncate text-[12px] text-slate-500">iot.hiveconnect.local</p>
-            </div>
-          ) : null}
+      <div className="flex items-center gap-3 overflow-hidden border-b border-blue-200 px-4 py-5">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 shadow-sm">
+          <Cpu size={15} className="text-white" />
+        </div>
+        <div
+          className={`overflow-hidden transition-all duration-200 ${expanded ? "w-auto opacity-100" : "w-0 opacity-0"}`}
+        >
+          <p className="whitespace-nowrap text-[13px] font-bold tracking-wide text-slate-950">
+            IOTIQ<span className="text-slate-500"> Console</span>
+          </p>
+          <p className="whitespace-nowrap text-[10px] uppercase tracking-widest text-slate-500">
+            Device Cloud
+          </p>
         </div>
       </div>
 

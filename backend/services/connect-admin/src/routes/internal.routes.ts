@@ -10,8 +10,35 @@ import {
 
 const router = Router()
 
+const FALLBACK_THING_TYPE = 'ccms-single'
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeIdentifier(input: string, fallback: string) {
+  const normalized = input
+    .trim()
+    .replace(/[^a-zA-Z0-9:_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-_:]+|[-_:]+$/g, '')
+
+  return normalized || fallback
+}
+
+function generateThingName(deviceId: string, deviceType: string) {
+  const normalizedDeviceId = normalizeIdentifier(deviceId, 'device')
+  const normalizedType = normalizeIdentifier(deviceType.toLowerCase(), 'single')
+  const stamp = Date.now().toString(36)
+  const random = Math.random().toString(36).slice(2, 8)
+
+  const generated = `thing-${normalizedType}-${normalizedDeviceId}-${stamp}-${random}`
+  return generated.slice(0, 128)
+}
+
+function generateThingTypeName(deviceType: string) {
+  const normalizedType = normalizeIdentifier(deviceType.toLowerCase(), 'single')
+  const generated = `ccms-${normalizedType}`
+  return generated.slice(0, 128) || FALLBACK_THING_TYPE
 }
 
 function parseAttributes(value: unknown) {
@@ -53,6 +80,7 @@ router.post('/devices/onboard', async (req, res) => {
     const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : ''
     const deviceType = typeof body.deviceType === 'string' ? body.deviceType.trim() : 'GENERIC'
     const thingNameInput = typeof body.thingName === 'string' ? body.thingName.trim() : ''
+    const thingTypeNameInput = typeof body.thingTypeName === 'string' ? body.thingTypeName.trim() : ''
     const policyName = typeof body.policyName === 'string' ? body.policyName.trim() : undefined
     const s3Prefix = typeof body.s3Prefix === 'string' ? body.s3Prefix.trim() : undefined
     const channels = typeof body.channels === 'string' ? body.channels.trim() : undefined
@@ -68,7 +96,17 @@ router.post('/devices/onboard', async (req, res) => {
       })
     }
 
-    const thingName = thingNameInput || deviceId
+    const normalizedDeviceId = normalizeIdentifier(deviceId, 'device')
+    const requestedThingName = thingNameInput ? normalizeIdentifier(thingNameInput, '') : ''
+    const thingName =
+      requestedThingName && requestedThingName !== normalizedDeviceId
+        ? requestedThingName
+        : generateThingName(normalizedDeviceId, deviceType)
+    const effectiveS3Prefix = s3Prefix || `ccms/devices/${normalizedDeviceId}`
+    const thingTypeName = thingTypeNameInput
+      ? normalizeIdentifier(thingTypeNameInput, FALLBACK_THING_TYPE)
+      : generateThingTypeName(deviceType)
+
     let attributes: Record<string, string> | undefined
     try {
       attributes = parseAttributes(body.attributes)
@@ -102,9 +140,10 @@ router.post('/devices/onboard', async (req, res) => {
 
     const provisioning = await provisionThingAndStoreCertificates({
       thingName,
+      thingTypeName,
       policyName,
       attributes,
-      s3Prefix
+      s3Prefix: effectiveS3Prefix
     })
 
     const device = await prisma.device.upsert({
