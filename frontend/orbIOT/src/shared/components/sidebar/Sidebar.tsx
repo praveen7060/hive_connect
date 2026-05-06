@@ -150,11 +150,11 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`
-        relative flex h-screen flex-col flex-shrink-0 overflow-hidden border-r border-blue-200/70 bg-[#f4f9ff]/90
-        transition-[width] duration-300 ease-in-out
-        ${expanded ? "w-[276px]" : "w-[80px]"}
-      `}
+      className={[
+        "relative flex h-screen flex-shrink-0 flex-col overflow-hidden border-r border-blue-200/70 bg-[#f4f9ff]/90",
+        "transition-[width] duration-300 ease-in-out",
+        expanded ? "w-[276px]" : "w-[80px]",
+      ].join(" ")}
       aria-label="Primary navigation"
       aria-expanded={expanded}
       onMouseEnter={() => setActive(true)}
@@ -166,12 +166,6 @@ export default function Sidebar() {
         }
       }}
     >
-      <div className="border-b border-slate-200 px-4 pb-5 pt-5">
-        <div className={`flex items-center ${expanded ? "gap-3" : "justify-center"}`}>
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]">
-            <Cpu size={18} />
-          </div>
-
       <div className="flex items-center gap-3 overflow-hidden border-b border-blue-200 px-4 py-5">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 shadow-sm">
           <Cpu size={15} className="text-white" />
