@@ -22,9 +22,13 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-            cd ~/hive_connect/backend
+            cd ~/hive_connect
 
-            git pull origin main
+            git fetch --all
+
+            git reset --hard origin/main
+
+            cd backend
 
             docker compose down
 
