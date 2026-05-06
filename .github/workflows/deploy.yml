@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,16 +26,22 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
+            set -e
+
             cd ~/hive_connect
 
             git fetch --all
 
             git reset --hard origin/main
 
+            git clean -fd
+
             cd backend
 
-            docker compose down
+            docker compose down --remove-orphans
 
-            docker compose up -d --build
+            docker compose build --no-cache
+
+            docker compose up -d
 
             docker ps
