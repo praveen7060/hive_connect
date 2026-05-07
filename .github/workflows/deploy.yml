@@ -1,0 +1,49 @@
+name: Deploy Orbita Stack
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+
+          command_timeout: 60m
+
+          script: |
+            set -e
+
+            cd ~/hive_connect
+
+            git fetch --all
+
+            git reset --hard origin/main
+
+            git clean -fd
+
+            cd backend
+
+            docker compose down --remove-orphans
+
+            docker compose build --no-cache
+
+            docker compose up -d
+
+            docker ps

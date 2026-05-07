@@ -52,8 +52,10 @@ interface IotDocuments {
 }
 
 interface IotMetadata {
+  deviceId?: string | null;
   thingId?: string | null;
   thingName?: string | null;
+  thingTypeName?: string | null;
   certificateId?: string | null;
   certificateArn?: string | null;
   policyAttached?: string | null;
@@ -317,7 +319,9 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
 
   const iotMeta = useMemo(() => parseIotMetadata(device.metadata), [device.metadata]);
   const thingIdRaw = readString(iotMeta?.thingId) ?? readString(device.foreignId);
+  const connectAdminDeviceId = readString(iotMeta?.deviceId) ?? thingIdRaw;
   const thingNameRaw = readString(iotMeta?.thingName);
+  const thingTypeNameRaw = readString(iotMeta?.thingTypeName);
   const documentPaths = {
     certificate: readString(iotMeta?.documents?.certificate),
     privateKey: readString(iotMeta?.documents?.privateKey),
@@ -332,6 +336,7 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
     (thingIdRaw ?? device.id) as PrimitiveValue,
     "ee13e4bd-14a0-455e-97df-7a1ab5f80dfa"
   );
+  const thingTypeName = text(thingTypeNameRaw as PrimitiveValue, "ccms-single");
   const certificateId = text(iotMeta?.certificateId as PrimitiveValue, "-");
   const certificateArn = text(iotMeta?.certificateArn as PrimitiveValue, "-");
   const policyAttached = text(iotMeta?.policyAttached as PrimitiveValue, "-");
@@ -396,7 +401,6 @@ client.loop_start()`,
   };
 
   useEffect(() => {
-    const connectAdminDeviceId = thingIdRaw;
     const hasPath = Boolean(
       documentPaths.certificate ||
       documentPaths.privateKey ||
@@ -448,11 +452,11 @@ client.loop_start()`,
       cancelled = true;
     };
   }, [
+    connectAdminDeviceId,
     documentPaths.certificate,
     documentPaths.metadata,
     documentPaths.privateKey,
     documentPaths.publicKey,
-    thingIdRaw,
     thingNameRaw,
   ]);
 
@@ -466,7 +470,9 @@ client.loop_start()`,
           Generated Thing ID and MQTT documents from device onboarding.
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <ConfigRow label="CCMS Device ID" value={text(connectAdminDeviceId as PrimitiveValue, "-")} />
           <ConfigRow label="Thing ID" value={thingId} />
+          <ConfigRow label="Thing Type" value={thingTypeName} />
           <ConfigRow label="Certificate ID" value={certificateId} />
           <ConfigRow label="Certificate ARN" value={certificateArn} />
           <ConfigRow label="Policy" value={policyAttached} />

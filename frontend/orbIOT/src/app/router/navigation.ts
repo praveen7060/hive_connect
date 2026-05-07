@@ -49,7 +49,7 @@ export const NAV_ITEMS: AppNavItem[] = [
   },
   {
     id: "devices",
-    label: "Device Inventory",
+    label: "Input Console",
     path: "/devices",
     description: "Review enrolled devices, assigned sites, and lifecycle status across the fleet.",
     icon: HardDrive,

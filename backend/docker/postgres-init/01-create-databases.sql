@@ -1,0 +1,2 @@
+CREATE DATABASE orbit_db;
+CREATE DATABASE ccms;

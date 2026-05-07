@@ -1,6 +1,10 @@
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../middleware/error.middleware";
-import { ConnectAdminHttpError, connectAdminClient } from "./connectAdmin.client";
+import {
+  ConnectAdminHttpError,
+  connectAdminClient,
+  getConnectAdminBaseUrl,
+} from "./connectAdmin.client";
 import {
   buildTemplateContext,
   renderPayloadTemplate,
@@ -120,7 +124,7 @@ function throwMappedError(error: unknown): never {
   if (isConnectAdminUnavailableError(error)) {
     throw new ApiError(
       503,
-      "Connect-admin service is unavailable. Ensure connect-admin is running on http://localhost:4000."
+      `Connect-admin service is unavailable. Ensure connect-admin is running on ${getConnectAdminBaseUrl()}.`
     );
   }
   throw new ApiError(500, "Internal orchestration failure");

@@ -28,8 +28,8 @@ export const communicationFormFields: FormFieldConfig[] = [
   { key: "protocol", label: "Protocol", type: "select", required: true, options: ["MQTT", "HTTP", "CoAP"] },
   { key: "version", label: "Version", type: "text", placeholder: "0.01" },
   { key: "messageFormat", label: "Message Format", type: "select", options: ["JSON", "XML", "PROTOBUF"] },
-  { key: "centric", label: "Centric", type: "select", options: ["TOPIC", "PAYLOAD", "HYBRID"] },
-  { key: "communicationMethod", label: "Communication Method", type: "select", options: ["MQTT", "HTTP", "PUBLISH", "SUBSCRIBE"] },
+  { key: "centric", label: "Centric", type: "select", options: ["TOPIC", "PAYLOAD"] },
+  { key: "payloadTopics", label: "Payload Centric Topics", type: "text", placeholder: "Enter Topic" },
   { key: "messageStructure", label: "Message Structure", type: "text", placeholder: "{}" },
   { key: "confirmationMessageStructure", label: "Confirmation Message Structure", type: "text", placeholder: "{}" },
   { key: "icon", label: "Icon", type: "text" },
@@ -62,12 +62,15 @@ export default function CommunicationForm({
   const [showProtocol, setShowProtocol] = useState(false);
   const [showMessageFormat, setShowMessageFormat] = useState(false);
   const [showCentric, setShowCentric] = useState(false);
-  const [showMessageStructure, setShowMessageStructure] = useState(false);
-  const [showConfirmationStructure, setShowConfirmationStructure] = useState(false);
   const [showIconDropdown, setShowIconDropdown] = useState(false);
   const [imageName, setImageName] = useState("");
+  const [payloadTopics, setPayloadTopics] = useState<string[]>([""]);
   const contentRef = useRef<HTMLDivElement>(null);
   const iconDropdownRef = useRef<HTMLDivElement>(null);
+  const hasCentricSelection = Boolean(String(values.centric || "").trim());
+  const showMessageDetails = showCentric && hasCentricSelection;
+  const showConfirmationStructure = showMessageDetails && Boolean(values.needConfirmation);
+  const isPayloadCentric = String(values.centric || "").trim().toUpperCase() === "PAYLOAD";
 
   const iconOptions = [
     { label: "Charger", icon: BatteryCharging },
@@ -98,16 +101,22 @@ export default function CommunicationForm({
     if (values.messageFormat) {
       setShowCentric(true);
     }
-    if (values.centric === "TOPIC") {
-      setShowMessageStructure(true);
-    } else {
-      setShowMessageStructure(false);
-      setShowConfirmationStructure(false);
+  }, [values.itemType, values.protocol, values.messageFormat]);
+
+  useEffect(() => {
+    const rawValue = String(values.payloadTopics || "").trim();
+    if (!rawValue) {
+      setPayloadTopics([""]);
+      return;
     }
-    if (values.needConfirmation) {
-      setShowConfirmationStructure(true);
-    }
-  }, [values.itemType, values.protocol, values.messageFormat, values.centric, values.needConfirmation]);
+
+    const parsed = rawValue
+      .split("\n")
+      .map((topic) => topic.trim())
+      .filter(Boolean);
+
+    setPayloadTopics(parsed.length > 0 ? parsed : [""]);
+  }, [values.payloadTopics]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -128,8 +137,6 @@ export default function CommunicationForm({
     setShowProtocol(true);
     setShowMessageFormat(false);
     setShowCentric(false);
-    setShowMessageStructure(false);
-    setShowConfirmationStructure(false);
     // Reset dependent fields
     onValueChange("protocol", "");
     onValueChange("messageFormat", "");
@@ -137,6 +144,8 @@ export default function CommunicationForm({
     onValueChange("messageStructure", "");
     onValueChange("confirmationMessageStructure", "");
     onValueChange("needConfirmation", false);
+    onValueChange("payloadTopics", "");
+    setPayloadTopics([""]);
     
     // Scroll to top of form content when new section appears
     if (contentRef.current) {
@@ -148,14 +157,14 @@ export default function CommunicationForm({
     onValueChange("protocol", value);
     setShowMessageFormat(true);
     setShowCentric(false);
-    setShowMessageStructure(false);
-    setShowConfirmationStructure(false);
     // Reset dependent fields
     onValueChange("messageFormat", "");
     onValueChange("centric", "");
     onValueChange("messageStructure", "");
     onValueChange("confirmationMessageStructure", "");
     onValueChange("needConfirmation", false);
+    onValueChange("payloadTopics", "");
+    setPayloadTopics([""]);
     
     // Scroll to top of form content when new section appears
     if (contentRef.current) {
@@ -166,13 +175,13 @@ export default function CommunicationForm({
   const handleMessageFormatChange = (value: string) => {
     onValueChange("messageFormat", value);
     setShowCentric(true);
-    setShowMessageStructure(false);
-    setShowConfirmationStructure(false);
     // Reset dependent fields
     onValueChange("centric", "");
     onValueChange("messageStructure", "");
     onValueChange("confirmationMessageStructure", "");
     onValueChange("needConfirmation", false);
+    onValueChange("payloadTopics", "");
+    setPayloadTopics([""]);
     
     // Scroll to top of form content when new section appears
     if (contentRef.current) {
@@ -182,20 +191,40 @@ export default function CommunicationForm({
 
   const handleCentricChange = (value: string) => {
     onValueChange("centric", value);
-    if (value === "TOPIC") {
-      setShowMessageStructure(true);
-    } else {
-      setShowMessageStructure(false);
-      setShowConfirmationStructure(false);
+    if (!value) {
       onValueChange("messageStructure", "");
       onValueChange("confirmationMessageStructure", "");
       onValueChange("needConfirmation", false);
+      onValueChange("payloadTopics", "");
+      setPayloadTopics([""]);
     }
     
     // Scroll to top of form content when new section appears
     if (contentRef.current) {
       contentRef.current.scrollTop = 0;
     }
+  };
+
+  const persistPayloadTopics = (topics: string[]) => {
+    const compactTopics = topics.map((topic) => topic.trim()).filter(Boolean);
+    onValueChange("payloadTopics", compactTopics.join("\n"));
+  };
+
+  const handlePayloadTopicChange = (index: number, value: string) => {
+    setPayloadTopics((current) => {
+      const next = [...current];
+      next[index] = value;
+      persistPayloadTopics(next);
+      return next;
+    });
+  };
+
+  const handleAddPayloadTopic = () => {
+    setPayloadTopics((current) => {
+      const next = [...current, ""];
+      persistPayloadTopics(next);
+      return next;
+    });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -508,42 +537,121 @@ export default function CommunicationForm({
               </div>
             )}
 
-            {/* Message Structure - shown after centric */}
-            {showMessageStructure && (
+            {/* Message detail fields - shown after any centric selection */}
+            {showMessageDetails && (
               <>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
-                    Message Structure
-                  </label>
-                  <input
-                    type="text"
-                    value={values.messageStructure || ""}
-                    onChange={(e) => onValueChange("messageStructure", e.target.value)}
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-mono text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
-                    placeholder='{"topicTemplate":"mqtt/device/@{deviceId}/update"}'
-                  />
-                </div>
+                {isPayloadCentric ? (
+                  <>
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                          Payload Centric Topics <span className="text-red-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddPayloadTopic}
+                          className="text-[12px] font-semibold text-slate-600 hover:text-slate-900"
+                        >
+                          + Add Topic
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {payloadTopics.map((topicValue, topicIndex) => (
+                          <input
+                            key={`payload-topic-${topicIndex}`}
+                            type="text"
+                            value={topicValue}
+                            required={topicIndex === 0}
+                            onChange={(e) => handlePayloadTopicChange(topicIndex, e.target.value)}
+                            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                            placeholder="Enter Topic"
+                          />
+                        ))}
+                      </div>
+                    </div>
 
-                {/* Need confirmation message structure toggle */}
-                <div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={values.needConfirmation || false}
-                      onChange={(e) => {
-                        onValueChange("needConfirmation", e.target.checked);
-                        setShowConfirmationStructure(e.target.checked);
-                        if (!e.target.checked) {
-                          onValueChange("confirmationMessageStructure", "");
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-200"
-                    />
-                    <span className="text-[13px] text-slate-700">
-                      Need confirmation message structure if you want Toggle on/off?
-                    </span>
-                  </label>
-                </div>
+                    <div>
+                      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                        Payload Centric Message Structure
+                      </label>
+                      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <div className="flex">
+                          <div className="w-9 shrink-0 bg-slate-50 pt-3 text-center text-[12px] font-semibold text-slate-400">
+                            1
+                          </div>
+                          <textarea
+                            value={String(values.messageStructure || "")}
+                            onChange={(e) => onValueChange("messageStructure", e.target.value)}
+                            rows={7}
+                            className="w-full resize-y border-0 px-3 py-3 text-[13px] font-mono text-slate-800 outline-none focus:ring-0"
+                            placeholder='{"deviceid":"","status":""}'
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <span className="text-[12px] text-slate-500">
+                        Confirmation message structures will be optional
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={Boolean(values.needConfirmation)}
+                        onClick={() => {
+                          const nextState = !Boolean(values.needConfirmation);
+                          onValueChange("needConfirmation", nextState);
+                          if (!nextState) {
+                            onValueChange("confirmationMessageStructure", "");
+                          }
+                        }}
+                        className={`relative h-6 w-11 rounded-full transition ${
+                          values.needConfirmation ? "bg-slate-900" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                            values.needConfirmation ? "left-[22px]" : "left-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 mb-2">
+                        Message Structure
+                      </label>
+                      <input
+                        type="text"
+                        value={values.messageStructure || ""}
+                        onChange={(e) => onValueChange("messageStructure", e.target.value)}
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-mono text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                        placeholder="{}"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={values.needConfirmation || false}
+                          onChange={(e) => {
+                            onValueChange("needConfirmation", e.target.checked);
+                            if (!e.target.checked) {
+                              onValueChange("confirmationMessageStructure", "");
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-200"
+                        />
+                        <span className="text-[13px] text-slate-700">
+                          Need confirmation message structure if you want Toggle on/off?
+                        </span>
+                      </label>
+                    </div>
+                  </>
+                )}
               </>
             )}
 

@@ -1,4 +1,7 @@
-const baseUrl = (process.env.CONNECT_ADMIN_BASE_URL ?? "http://localhost:5000").replace(/\/+$/, "");
+const DEFAULT_CONNECT_ADMIN_BASE_URL = "http://localhost:4000";
+const baseUrl = (
+  process.env.CONNECT_ADMIN_BASE_URL ?? DEFAULT_CONNECT_ADMIN_BASE_URL
+).replace(/\/+$/, "");
 const DEFAULT_CONNECT_ADMIN_TIMEOUT_MS = 15000;
 const connectAdminTimeoutMs = (() => {
   const parsed = Number(process.env.CONNECT_ADMIN_TIMEOUT_MS ?? DEFAULT_CONNECT_ADMIN_TIMEOUT_MS);
@@ -33,6 +36,7 @@ type ProvisionRequest = {
   deviceId: string;
   deviceType?: string;
   thingName?: string;
+  thingTypeName?: string;
   policyName?: string;
   attributes?: Record<string, string>;
   s3Prefix?: string;
@@ -130,11 +134,11 @@ async function request<T>(
 
   return parsed as T;
 }
-
+   
 function tryParseJson(raw: string): unknown {
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch  {
     return raw;
   }
 }
@@ -188,3 +192,7 @@ export const connectAdminClient = {
   subscribeTopics: (topics: string[], correlationId?: string) =>
     request("/internal/iot/topics/subscribe", "POST", correlationId, { topics }),
 };
+
+export function getConnectAdminBaseUrl(): string {
+  return baseUrl;
+}

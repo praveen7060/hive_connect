@@ -5,17 +5,19 @@ import { subscribeTopics } from './mqtt/subscribers'
 import { setMqttConnection } from './mqtt/connection_holder'
 
 async function bootstrap() {
-  const mqttConnections = await connectMQTT()
+  try {
+    const mqttConnections = await connectMQTT()
+    setMqttConnection(mqttConnections[0])
 
-  // ✅ THIS LINE IS CRITICAL
-  setMqttConnection(mqttConnections[0])
-
-  mqttConnections.forEach((connection) => {
-    subscribeTopics(connection)
-  })
+    mqttConnections.forEach((connection) => {
+      subscribeTopics(connection)
+    })
+  } catch (error) {
+    console.error('MQTT bootstrap failed; starting API in degraded mode:', error)
+  }
 
   app.listen(ENV.PORT, () => {
-    console.log(`🚀 Server running on ${ENV.PORT}`)
+    console.log(`Server running on ${ENV.PORT}`)
   })
 }
 

@@ -5,7 +5,7 @@ const router = Router()
 
 router.post('/things/provision', async (req, res) => {
   try {
-    const { thingName, policyName, attributes, s3Prefix } = req.body || {}
+    const { thingName, thingTypeName, policyName, attributes, s3Prefix } = req.body || {}
 
     if (!thingName || typeof thingName !== 'string') {
       return res.status(400).json({ error: 'thingName is required' })
@@ -13,6 +13,10 @@ router.post('/things/provision', async (req, res) => {
 
     if (policyName !== undefined && typeof policyName !== 'string') {
       return res.status(400).json({ error: 'policyName must be a string' })
+    }
+
+    if (thingTypeName !== undefined && typeof thingTypeName !== 'string') {
+      return res.status(400).json({ error: 'thingTypeName must be a string' })
     }
 
     if (
@@ -38,6 +42,7 @@ router.post('/things/provision', async (req, res) => {
 
     const result = await provisionThingAndStoreCertificates({
       thingName,
+      thingTypeName,
       policyName,
       attributes,
       s3Prefix
