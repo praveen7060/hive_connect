@@ -300,9 +300,9 @@ export async function resolveCatalogProfile(deviceRecordId: string): Promise<Cat
   };
 
   const connectAdminDeviceId =
-    thingId ??
     getString(effectiveCatalog.connectAdminDeviceId) ??
-    device.serialNumber;
+    device.serialNumber ??
+    thingId;
 
   const provisioningThingName =
     getString(effectiveCatalog.thingName) ??

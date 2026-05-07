@@ -44,4 +44,29 @@ export const parameterController = {
       next(err);
     }
   },
+  async importDocument(req: Request, res: Response, next: NextFunction) {
+    try {
+      const vendor = String(req.body?.vendor ?? "").trim();
+      if (!vendor) {
+        throw new ApiError(400, "vendor is required");
+      }
+
+      const file = (req as Request & { file?: Express.Multer.File }).file;
+      if (!file?.buffer?.length) {
+        throw new ApiError(400, "PDF file is required");
+      }
+
+      const persist = String(req.body?.persist ?? "true").trim().toLowerCase() !== "false";
+      res.status(201).json(
+        await parameterService.importDocument({
+          vendor,
+          fileName: file.originalname,
+          buffer: file.buffer,
+          persist,
+        })
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
 };

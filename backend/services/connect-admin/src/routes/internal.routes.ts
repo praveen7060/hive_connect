@@ -136,6 +136,59 @@ router.post('/devices/onboard', async (req, res) => {
   }
 })
 
+router.post('/devices/register', async (req, res) => {
+  try {
+    const body = req.body || {}
+    const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : ''
+    const deviceType = typeof body.deviceType === 'string' ? body.deviceType.trim() : 'GENERIC'
+    const thingId = typeof body.thingId === 'string' ? body.thingId.trim() : ''
+    const channels = typeof body.channels === 'string' ? body.channels.trim() : undefined
+    const firmwareVersion =
+      typeof body.firmwareVersion === 'string' ? body.firmwareVersion.trim() : undefined
+    const ipAddress = typeof body.ipAddress === 'string' ? body.ipAddress.trim() : undefined
+    const macAddress = typeof body.macAddress === 'string' ? body.macAddress.trim() : undefined
+
+    if (!deviceId) {
+      return res.status(400).json({ error: 'deviceId is required' })
+    }
+
+    if (!deviceType) {
+      return res.status(400).json({ error: 'deviceType must be a non-empty string' })
+    }
+
+    const device = await prisma.device.upsert({
+      where: { deviceId },
+      update: {
+        deviceType,
+        thingId: thingId || null,
+        ...(channels ? { channels } : {}),
+        ...(firmwareVersion ? { firmwareVersion } : {}),
+        ...(ipAddress ? { ipAddress } : {}),
+        ...(macAddress ? { macAddress } : {})
+      },
+      create: {
+        deviceId,
+        deviceType,
+        thingId: thingId || null,
+        ...(channels ? { channels } : {}),
+        ...(firmwareVersion ? { firmwareVersion } : {}),
+        ...(ipAddress ? { ipAddress } : {}),
+        ...(macAddress ? { macAddress } : {})
+      }
+    })
+
+    return res.status(201).json({
+      success: true,
+      device
+    })
+  } catch (error) {
+    console.error('Internal device register failed:', error)
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Failed to register device'
+    })
+  }
+})
+
 router.get('/devices/:deviceId', async (req, res) => {
   try {
     const device = await prisma.device.findUnique({

@@ -180,6 +180,44 @@ async function apiRequest<T>(
   return (await response.json()) as T;
 }
 
+async function uploadFormRequest<T>(path: string, formData: FormData): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error(`Request timed out after ${API_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const errorPayload = (await response.json()) as Record<string, unknown>;
+      if (typeof errorPayload.message === "string" && errorPayload.message.trim()) {
+        message = errorPayload.message;
+      } else if (typeof errorPayload.error === "string" && errorPayload.error.trim()) {
+        message = errorPayload.error;
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
 async function apiRequestWithFallback<T>(
   path: string,
   primaryMethod: FallbackHttpMethod,
@@ -244,5 +282,22 @@ export const deviceInventoryApi = {
         "POST",
         payload ?? {}
       ),
+  },
+  parameterImports: {
+    importPdf: (file: File, vendor: string, persist: boolean = true) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("vendor", vendor);
+      formData.append("persist", String(persist));
+      return uploadFormRequest<{
+        vendor: string;
+        fileName: string;
+        extractedCount: number;
+        savedCount: number;
+        skippedCount: number;
+        extracted: Array<{ name: string; variableType: string; sampleValue?: string; isConstant: boolean }>;
+        skipped: string[];
+      }>("/parameters/import-document", formData);
+    },
   },
 };

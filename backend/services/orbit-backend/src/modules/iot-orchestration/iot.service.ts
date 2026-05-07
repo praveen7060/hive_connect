@@ -126,6 +126,44 @@ function throwMappedError(error: unknown): never {
   throw new ApiError(500, "Internal orchestration failure");
 }
 
+function mapConnectAdminDeviceType(deviceType: string | undefined) {
+  const normalized = (deviceType ?? "").trim().toLowerCase();
+
+  if (normalized.includes("switch_4ch")) {
+    return "SWITCH_4CH";
+  }
+
+  if (normalized.includes("dongle")) {
+    return "DONGLE_2CH";
+  }
+
+  if (normalized.includes("smart_meter")) {
+    return "SMART_METER";
+  }
+
+  return "GENERIC";
+}
+
+async function ensureConnectAdminRegistrationForProfile(
+  profile: Awaited<ReturnType<typeof resolveCatalogProfile>>,
+  correlationId?: string
+) {
+  try {
+    await connectAdminClient.registerDevice(
+      {
+        deviceId: profile.device.serialNumber,
+        deviceType: mapConnectAdminDeviceType(profile.provisioning.deviceType),
+        thingId: profile.thingId ?? profile.provisioning.thingName,
+        channels: profile.provisioning.channels,
+        firmwareVersion: getString(profile.iotMetadata.firmwareVersion) ?? undefined,
+      },
+      correlationId
+    );
+  } catch (error) {
+    throwMappedError(error);
+  }
+}
+
 export const iotService = {
   async provisionThing(input: ProvisionThingInput, correlationId?: string) {
     try {
@@ -328,6 +366,8 @@ export const iotService = {
     correlationId?: string
   ) {
     const profile = await resolveCatalogProfile(deviceRecordId);
+    await ensureConnectAdminRegistrationForProfile(profile, correlationId);
+
     const command = profile.commands.find((entry) => {
       if (input.messageId && entry.message.id === input.messageId) {
         return true;

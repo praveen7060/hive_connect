@@ -52,6 +52,16 @@ type PublishRequest = {
   payload: Record<string, unknown>;
 };
 
+type RegisterDeviceRequest = {
+  deviceId: string;
+  deviceType: string;
+  thingId?: string;
+  channels?: string;
+  firmwareVersion?: string;
+  ipAddress?: string;
+  macAddress?: string;
+};
+
 type DeprovisionRequest = {
   thingName?: string;
   s3Prefix?: string;
@@ -140,6 +150,9 @@ function getErrorMessage(payload: unknown, fallback: string): string {
 }
 
 export const connectAdminClient = {
+  registerDevice: (payload: RegisterDeviceRequest, correlationId?: string) =>
+    request("/internal/devices/register", "POST", correlationId, payload),
+
   provisionThing: (payload: ProvisionRequest, correlationId?: string) =>
     request("/internal/devices/onboard", "POST", correlationId, payload),
 

@@ -129,6 +129,54 @@ function getDiscoveredDeviceName(serialNumber: string, fallbackName?: string) {
   return serialNumber;
 }
 
+function mapConnectAdminDeviceType(catalogDeviceType: string | undefined, serialNumber: string) {
+  const normalized = (catalogDeviceType ?? "").trim().toLowerCase();
+  const serial = serialNumber.trim().toUpperCase();
+
+  if (normalized.includes("switch_4ch") || serial.startsWith("IOTIQ4SC_")) {
+    return "SWITCH_4CH";
+  }
+
+  if (normalized.includes("dongle") || serial.startsWith("IOTIQDC2_")) {
+    return "DONGLE_2CH";
+  }
+
+  if (normalized.includes("smart_meter") || serial.startsWith("IOTIQSM_")) {
+    return "SMART_METER";
+  }
+
+  return "GENERIC";
+}
+
+async function ensureConnectAdminRegistration(payload: {
+  serialNumber: string;
+  catalogDeviceType?: string;
+  thingId?: string;
+  channels?: string;
+  firmwareVersion?: string;
+}) {
+  try {
+    await connectAdminClient.registerDevice({
+      deviceId: payload.serialNumber,
+      deviceType: mapConnectAdminDeviceType(payload.catalogDeviceType, payload.serialNumber),
+      thingId: payload.thingId,
+      channels: payload.channels,
+      firmwareVersion: payload.firmwareVersion,
+    });
+  } catch (error) {
+    if (error instanceof ConnectAdminHttpError) {
+      throw new ApiError(error.statusCode, error.message, error.details);
+    }
+    if (isConnectAdminUnavailableError(error)) {
+      throw new ApiError(
+        503,
+        "Connect-admin service is unavailable. Ensure connect-admin is running on http://localhost:4000."
+      );
+    }
+    throw new ApiError(500, "Failed to register device with connect-admin");
+  }
+}
+
 export const deviceService = {
   list: () => prisma.device.findMany({ orderBy: { createdAt: "desc" } }),
   getById: (id: string) => prisma.device.findUnique({ where: { id } }),
@@ -242,15 +290,23 @@ export const deviceService = {
       metadata,
     };
 
-    if (existing) {
-      return prisma.device.update({
+    const record = existing
+      ? await prisma.device.update({
         where: { id: existing.id },
         data: payload,
+      })
+      : await prisma.device.create({
+        data: payload,
       });
-    }
 
-    return prisma.device.create({
-      data: payload,
+    await ensureConnectAdminRegistration({
+      serialNumber,
+      catalogDeviceType: getString(catalogMetadata.deviceType),
+      thingId: getString(data.thingId) ?? getString(record.foreignId),
+      channels: getString(catalogMetadata.channels),
+      firmwareVersion: getString(data.firmwareVersion),
     });
+
+    return record;
   },
 };

@@ -1,8 +1,12 @@
 import { config as loadEnv } from "dotenv";
 import { resolve } from "path";
-import app from "./app";
 
 loadEnv({ path: resolve(__dirname, "../.env") });
+
+// Load the Express app only after environment variables are present so Prisma
+// and route modules see the correct DATABASE_URL during initialization.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const app = require("./app").default;
 
 const PORT = Number(process.env.PORT ?? 4000);
 

@@ -8,6 +8,7 @@ import {
   X,
   ChevronDown,
   Plus,
+  Upload,
 } from "lucide-react";
 import ParameterForm from "./ParameterForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
@@ -161,6 +162,16 @@ export default function ParameterManagementPage() {
   );
   const [formValues, setFormValues] = useState<Record<string, PrimitiveValue>>(buildDefaults());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [importVendor, setImportVendor] = useState<string>("");
+  const [importing, setImporting] = useState<boolean>(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<null | {
+    vendor: string;
+    fileName: string;
+    extractedCount: number;
+    savedCount: number;
+    skippedCount: number;
+  }>(null);
   const { rows, loading, error, createOne, updateOne, deleteOne } = useCrudResource<
     ParameterRow,
     Partial<ParameterRow>,
@@ -189,6 +200,36 @@ export default function ParameterManagementPage() {
 
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [formValues.vendors, vendorRows]);
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+
+    const selectedVendor = importVendor.trim();
+    if (!selectedVendor) {
+      setImportError("Select a vendor before importing a PDF.");
+      return;
+    }
+
+    setImporting(true);
+    setImportError(null);
+    setImportResult(null);
+
+    try {
+      const result = await deviceInventoryApi.parameterImports.importPdf(file, selectedVendor, true);
+      setImportResult({
+        vendor: result.vendor,
+        fileName: result.fileName,
+        extractedCount: result.extractedCount,
+        savedCount: result.savedCount,
+        skippedCount: result.skippedCount,
+      });
+      window.location.reload();
+    } catch (uploadError) {
+      setImportError(uploadError instanceof Error ? uploadError.message : "PDF import failed");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const filteredRows = useMemo<ParameterRow[]>(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -382,6 +423,63 @@ export default function ParameterManagementPage() {
           )}
         </button>
       </div>
+
+      <div className="px-12 mt-5 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <select
+            value={importVendor}
+            onChange={(e) => setImportVendor(e.target.value)}
+            className="h-11 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 cursor-pointer"
+          >
+            <option value="">{vendorsLoading ? "Loading vendors..." : "Select vendor for PDF import"}</option>
+            {vendorOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={12}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+        </div>
+
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-900">
+          <Upload size={14} />
+          {importing ? "Importing PDF..." : "Import PDF"}
+          <input
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            disabled={importing}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              void handleImportFile(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+
+        <p className="text-[12px] text-slate-500">
+          Upload a vendor PDF to extract parameter keys and save them automatically.
+        </p>
+      </div>
+
+      {importError ? (
+        <div className="px-12 mt-4">
+          <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-[12px] text-rose-700">
+            {importError}
+          </p>
+        </div>
+      ) : null}
+
+      {importResult ? (
+        <div className="px-12 mt-4">
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-[12px] text-emerald-700">
+            Imported {importResult.fileName} for {importResult.vendor}. Extracted {importResult.extractedCount}, saved {importResult.savedCount}, skipped {importResult.skippedCount}.
+          </p>
+        </div>
+      ) : null}
 
       {/* ── Stat Cards ── */}
       <div className="px-12 mt-9 grid grid-cols-2 gap-4 lg:grid-cols-4">
