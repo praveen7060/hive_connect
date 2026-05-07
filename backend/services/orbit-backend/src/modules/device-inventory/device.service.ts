@@ -7,6 +7,7 @@ import {
 } from "../iot-orchestration/connectAdmin.client";
 import type { z } from "zod";
 import { createDeviceSchema, discoveredDeviceSyncSchema, updateDeviceSchema } from "./device.schema";
+import { ensureElevateCatalog } from "./elevateCatalog";
 
 type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 type UpdateDeviceInput = z.infer<typeof updateDeviceSchema>;
