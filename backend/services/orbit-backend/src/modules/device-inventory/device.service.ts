@@ -24,7 +24,7 @@ function getString(value: unknown): string | undefined {
   const trimmed = value.trim();
   return trimmed || undefined;
 }
-
+ 
 function parseIotMetadata(metadata: string | null | undefined): Record<string, unknown> | null {
   if (!metadata) {
     return null;
@@ -84,7 +84,7 @@ function extractS3Prefix(iotMetadata: Record<string, unknown> | null, thingName:
   const prefix = normalizedKey.slice(0, markerIndex).replace(/^\/+|\/+$/g, "");
   return prefix || undefined;
 }
-
+    
 function isConnectAdminUnavailableError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
@@ -111,7 +111,7 @@ function parseJsonObject(value: string | null | undefined): Record<string, unkno
   if (!value) {
     return {};
   }
-
+  
   try {
     const parsed: unknown = JSON.parse(value);
     return isPlainObject(parsed) ? parsed : {};
@@ -151,13 +151,13 @@ function mapConnectAdminDeviceType(catalogDeviceType: string | undefined, serial
 
   return "GENERIC";
 }
-
+           
 async function ensureConnectAdminRegistration(payload: {
   serialNumber: string;
   catalogDeviceType?: string;
   thingId?: string;
   channels?: string;
-  firmwareVersion?: string;
+  firmwareVersion?: string;                                                                                                          
 }) {
   try {
     await connectAdminClient.registerDevice({
@@ -199,7 +199,7 @@ export const deviceService = {
     const s3Prefix = extractS3Prefix(iotMetadata, thingName);
     const deprovisionDeviceId =
       connectAdminDeviceId ?? thingId ?? getString(device.serialNumber);
-
+ 
     if (deprovisionDeviceId || thingName) {
       try {
         await connectAdminClient.deprovisionDevice(deprovisionDeviceId ?? thingName ?? id, {
@@ -223,7 +223,7 @@ export const deviceService = {
         }
       }
     }
-
+  
     return prisma.device.delete({ where: { id } });
   },
   async upsertDiscovered(data: DiscoveredDeviceSyncInput) {
@@ -295,7 +295,7 @@ export const deviceService = {
       status: getString(data.status) ?? existing?.status ?? "active",
       metadata,
     };
-
+ 
     const record = existing
       ? await prisma.device.update({
         where: { id: existing.id },

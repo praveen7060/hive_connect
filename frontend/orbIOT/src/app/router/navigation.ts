@@ -49,47 +49,11 @@ export const NAV_ITEMS: AppNavItem[] = [
   },
   {
     id: "devices",
-    label: "Input Console",
+    label: "Device Management",
     path: "/devices",
     description: "Review enrolled devices, assigned sites, and lifecycle status across the fleet.",
     icon: HardDrive,
     subItems: [
-      {
-        id: "vendor-management",
-        label: "Vendor Management",
-        queryKey: "vendorPage",
-        viewPath: "Deviceinventory/pages/VendorManagement",
-      },
-      {
-        id: "parameter-management",
-        label: "Parameter Management",
-        queryKey: "parameterPage",
-        viewPath: "Deviceinventory/pages/ParameterManagement",
-      },
-      {
-        id: "item-type-management",
-        label: "Item-Type Management",
-        queryKey: "itemTypePage",
-        viewPath: "Deviceinventory/pages/ItemTypeManagement",
-      },
-      {
-        id: "communication-management",
-        label: "Communication Management",
-        queryKey: "communicationPage",
-        viewPath: "Deviceinventory/pages/CommunicationManagement",
-      },
-      {
-        id: "messaging-management",
-        label: "Messaging Management",
-        queryKey: "messagingPage",
-        viewPath: "Deviceinventory/pages/MessagingManagement",
-      },
-      {
-        id: "item-management",
-        label: "Item Management",
-        queryKey: "itemPage",
-        viewPath: "Deviceinventory/pages/ItemManagement",
-      },
       {
         id: "device-management",
         label: "Device Management",

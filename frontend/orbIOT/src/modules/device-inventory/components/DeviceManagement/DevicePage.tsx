@@ -10,9 +10,8 @@ import {
   ChevronDown,
   Plus,
 } from "lucide-react";
-import DeviceForm from "./DeviceForm";
+import DeviceWorkflowBuilder from "./DeviceWorkflowBuilder";
 import DeviceDetailsView from "./DeviceDetailsView";
-import { RightDrawer } from "../management/ui";
 import { deviceInventoryApi, type IotProvisionResponse } from "../../api";
 import { useCrudResource } from "../../hooks";
 
@@ -42,6 +41,21 @@ type CommunicationRow = {
   name?: PrimitiveValue;
   itemType?: PrimitiveValue;
   itemTypeName?: PrimitiveValue;
+} & Record<string, PrimitiveValue>;
+
+type ParameterRow = {
+  id: string | number;
+  name?: PrimitiveValue;
+  vendors?: PrimitiveValue;
+  variableType?: PrimitiveValue;
+} & Record<string, PrimitiveValue>;
+
+type MessageRow = {
+  id: string | number;
+  name?: PrimitiveValue;
+  topic?: PrimitiveValue;
+  itemType?: PrimitiveValue;
+  communicationPolicy?: PrimitiveValue;
 } & Record<string, PrimitiveValue>;
 
 type ItemRow = {
@@ -400,22 +414,55 @@ export default function DeviceManagementPage() {
     Partial<DeviceRow>,
     Partial<DeviceRow>
   >(deviceInventoryApi.devices, { initialRows: INITIAL_ROWS });
-  const { rows: vendorRows, loading: vendorsLoading } = useCrudResource<
+  const {
+    rows: vendorRows,
+    loading: vendorsLoading,
+    createOne: createVendorOne,
+  } = useCrudResource<
     VendorRow,
     Partial<VendorRow>,
     Partial<VendorRow>
   >(deviceInventoryApi.vendors, { initialRows: [] });
-  const { rows: itemTypeRows, loading: itemTypesLoading } = useCrudResource<
+  const {
+    rows: parameterRows,
+    loading: parametersLoading,
+    createOne: createParameterOne,
+  } = useCrudResource<
+    ParameterRow,
+    Partial<ParameterRow>,
+    Partial<ParameterRow>
+  >(deviceInventoryApi.parameters, { initialRows: [] });
+  const {
+    rows: itemTypeRows,
+    loading: itemTypesLoading,
+    createOne: createItemTypeOne,
+  } = useCrudResource<
     ItemTypeRow,
     Partial<ItemTypeRow>,
     Partial<ItemTypeRow>
   >(deviceInventoryApi.itemTypes, { initialRows: [] });
-  const { rows: communicationRows, loading: communicationPoliciesLoading } = useCrudResource<
+  const {
+    rows: communicationRows,
+    loading: communicationPoliciesLoading,
+    createOne: createCommunicationOne,
+  } = useCrudResource<
     CommunicationRow,
     Partial<CommunicationRow>,
     Partial<CommunicationRow>
   >(deviceInventoryApi.communications, { initialRows: [] });
-  const { rows: itemRows } = useCrudResource<
+  const {
+    rows: messageRows,
+    loading: messagesLoading,
+    createOne: createMessageOne,
+  } = useCrudResource<
+    MessageRow,
+    Partial<MessageRow>,
+    Partial<MessageRow>
+  >(deviceInventoryApi.messages, { initialRows: [] });
+  const {
+    rows: itemRows,
+    createOne: createItemOne,
+  } = useCrudResource<
     ItemRow,
     Partial<ItemRow>,
     Partial<ItemRow>
@@ -504,6 +551,20 @@ export default function DeviceManagementPage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [communicationRows, formValues.communicationPolicy, formValues.itemTypeName, itemRows]);
 
+  const parameterOptions = useMemo(() => {
+    const values = new Set<string>();
+    const selectedVendor = String(formValues.vendorName ?? "").trim().toLowerCase();
+    parameterRows.forEach((row) => {
+      const name = String(row.name ?? "").trim();
+      if (!name) return;
+      const vendors = String(row.vendors ?? "").trim().toLowerCase();
+      if (!selectedVendor || !vendors || vendors.includes(selectedVendor)) {
+        values.add(name);
+      }
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [formValues.vendorName, parameterRows]);
+
   useEffect(() => {
     const shouldCreate = searchParams.get("create");
     const requestedVendor = String(searchParams.get("vendorName") ?? "").trim();
@@ -561,13 +622,17 @@ export default function DeviceManagementPage() {
   };
 
   const saveDevice = async (): Promise<boolean> => {
-    const name = String(formValues.name ?? "").trim();
-    const serialNumber = String(formValues.serialNumber ?? "").trim();
-    const connectionType = String(formValues.connectionType ?? "").trim();
-    const project = String(formValues.project ?? "").trim();
-    if (!name || !serialNumber || !connectionType || !project) {
-      return false;
-    }
+    const generatedSuffix = generateProvisioningUuid().slice(0, 8);
+    const name =
+      String(formValues.name ?? "").trim() ||
+      String(formValues.itemName ?? "").trim() ||
+      `device-${generatedSuffix}`;
+    const serialNumber =
+      String(formValues.serialNumber ?? "").trim() ||
+      String(formValues.foreignId ?? "").trim() ||
+      `AUTO-${generateProvisioningUuid().slice(0, 12).toUpperCase()}`;
+    const connectionType = String(formValues.connectionType ?? "").trim() || "MQTT";
+    const project = String(formValues.project ?? "").trim() || "project_a";
 
     setSubmitError(null);
     setIsSaving(true);
@@ -577,6 +642,10 @@ export default function DeviceManagementPage() {
       if (editingId !== null) {
         await updateOne(editingId, {
           ...formValues,
+          name,
+          serialNumber,
+          connectionType,
+          project,
           metadata: buildCatalogMetadata(
             formValues,
             readStringFromUnknown(formValues.foreignId) ??
@@ -612,6 +681,10 @@ export default function DeviceManagementPage() {
 
         const created = await createOne({
           ...formValues,
+          name,
+          serialNumber,
+          connectionType,
+          project,
           foreignId: thingId,
           status: "active",
           metadata: buildMergedMetadata(catalogMetadata, provisioningData, thingId),
@@ -823,6 +896,60 @@ export default function DeviceManagementPage() {
             />
           </div>
         </div>
+      ) : formOpen ? (
+      <div className="px-12 mt-8 pb-14">
+        <DeviceWorkflowBuilder
+          title={editingId ? "Edit Device Workflow" : "Create Device Workflow"}
+          subtitle="Choose catalog components in order, add missing records with +, and then create the device."
+          values={formValues}
+          onValueChange={handleValueChange}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          isSaving={isSaving}
+          editing={editingId !== null}
+          submitError={submitError}
+          vendorsLoading={vendorsLoading}
+          parametersLoading={parametersLoading}
+          itemTypesLoading={itemTypesLoading}
+          communicationPoliciesLoading={communicationPoliciesLoading}
+          messagesLoading={messagesLoading}
+          vendorOptions={vendorOptions}
+          parameterOptions={parameterOptions}
+          itemTypeOptions={itemTypeOptions}
+          communicationPolicyOptions={communicationPolicyOptions}
+          messageOptions={messageRows.map((row) => ({
+            id: String(row.id),
+            name: String(row.name ?? row.topic ?? "Unnamed Message"),
+            topic: String(row.topic ?? ""),
+          }))}
+          itemOptions={itemRows.map((row) => ({
+            id: String(row.id),
+            name: String(row.name ?? ""),
+            itemCode: String(row.itemCode ?? ""),
+            vendor: String(row.vendor ?? ""),
+            itemType: String(row.itemType ?? ""),
+            communicationPolicy: String(row.communicationPolicy ?? ""),
+          }))}
+          onCreateVendor={async (payload) => {
+            await createVendorOne(payload as Partial<VendorRow>);
+          }}
+          onCreateParameter={async (payload) => {
+            await createParameterOne(payload as Partial<ParameterRow>);
+          }}
+          onCreateItemType={async (payload) => {
+            await createItemTypeOne(payload as Partial<ItemTypeRow>);
+          }}
+          onCreateCommunication={async (payload) => {
+            await createCommunicationOne(payload as Partial<CommunicationRow>);
+          }}
+          onCreateMessage={async (payload) => {
+            await createMessageOne(payload as Partial<MessageRow>);
+          }}
+          onCreateItem={async (payload) => {
+            await createItemOne(payload as Partial<ItemRow>);
+          }}
+        />
+      </div>
       ) : (
       <>
       {/* Stat Cards */}
@@ -1001,28 +1128,6 @@ export default function DeviceManagementPage() {
           </div>
         </div>
 
-        {/* Side Form Panel */}
-        <RightDrawer open={formOpen} onClose={handleCancel} size="large">
-          <div className="form-scroll h-full overflow-y-auto">
-            <DeviceForm
-              formId="device-form"
-              formTitle={editingId ? "Edit Device" : "Create New Device"}
-              formSubtitle={editingId ? "Update the device details below." : "Enter the details for the new device"}
-              editing={!!editingId}
-              values={formValues}
-              vendorOptions={vendorOptions}
-              itemTypeOptions={itemTypeOptions}
-              communicationPolicyOptions={communicationPolicyOptions}
-              vendorsLoading={vendorsLoading}
-              itemTypesLoading={itemTypesLoading}
-              communicationPoliciesLoading={communicationPoliciesLoading}
-              onValueChange={handleValueChange}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              isSaving={isSaving}
-            />
-          </div>
-        </RightDrawer>
       </div>
       </>
       )}
