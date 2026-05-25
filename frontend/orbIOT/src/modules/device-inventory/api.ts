@@ -302,4 +302,41 @@ export const deviceInventoryApi = {
       }>("/parameters/import-document", formData);
     },
   },
+  vendorImports: {
+    importPostman: (file: File, vendorName?: string, persist: boolean = true) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (vendorName?.trim()) {
+        formData.append("vendorName", vendorName.trim());
+      }
+      formData.append("persist", String(persist));
+      return uploadFormRequest<{
+        vendorName: string;
+        authType: string;
+        baseUrl?: string;
+        tokenUrl?: string;
+        persisted: boolean;
+        parameters: Array<{
+          name: string;
+          variableType: string;
+          sampleValue?: string;
+          isConstant: boolean;
+          scope: string;
+        }>;
+        requests: Array<{
+          name: string;
+          method: string;
+          path: string;
+        }>;
+        summary?: {
+          parameterCreated: number;
+          parameterUpdated: number;
+          messageCreated: number;
+          messageUpdated: number;
+          requestCount: number;
+          parameterCount: number;
+        };
+      }>("/vendors/import-postman", formData);
+    },
+  },
 };

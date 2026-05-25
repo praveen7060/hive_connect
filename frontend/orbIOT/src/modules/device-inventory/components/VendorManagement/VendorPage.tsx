@@ -8,6 +8,8 @@ import {
   X,
   ChevronDown,
   Plus,
+  Upload,
+  FileJson,
 } from "lucide-react";
 import VendorForm from "./VendorForm";
 import { buildDevicePageUrl, getAdjacentDeviceQueryKey } from "../management/flow";
@@ -61,6 +63,34 @@ interface StatCardProps {
 interface BadgeProps {
   value: string;
 }
+
+type VendorImportResult = {
+  vendorName: string;
+  authType: string;
+  baseUrl?: string;
+  tokenUrl?: string;
+  persisted: boolean;
+  parameters: Array<{
+    name: string;
+    variableType: string;
+    sampleValue?: string;
+    isConstant: boolean;
+    scope: string;
+  }>;
+  requests: Array<{
+    name: string;
+    method: string;
+    path: string;
+  }>;
+  summary?: {
+    parameterCreated: number;
+    parameterUpdated: number;
+    messageCreated: number;
+    messageUpdated: number;
+    requestCount: number;
+    parameterCount: number;
+  };
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const FILTERS: FilterConfig[] = [
@@ -210,7 +240,13 @@ export default function VendorManagementPage() {
   );
   const [formValues, setFormValues] = useState<Record<string, PrimitiveValue>>(buildDefaults());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const { rows, loading, error, createOne, updateOne, deleteOne } = useCrudResource<
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importVendorName, setImportVendorName] = useState<string>("");
+  const [importPersist, setImportPersist] = useState<boolean>(true);
+  const [importLoading, setImportLoading] = useState<boolean>(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<VendorImportResult | null>(null);
+  const { rows, loading, error, reload, createOne, updateOne, deleteOne } = useCrudResource<
     VendorRow,
     Partial<VendorRow>,
     Partial<VendorRow>
@@ -263,6 +299,33 @@ export default function VendorManagementPage() {
 
   const handleValueChange = (key: string, value: PrimitiveValue): void => {
     setFormValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleImportSubmit = async (): Promise<void> => {
+    if (!importFile) {
+      setImportError("Select a Postman collection JSON file.");
+      return;
+    }
+
+    setImportLoading(true);
+    setImportError(null);
+
+    try {
+      const result = await deviceInventoryApi.vendorImports.importPostman(
+        importFile,
+        importVendorName,
+        importPersist
+      );
+      setImportResult(result);
+
+      if (result.persisted) {
+        await reload();
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Vendor import failed");
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   const saveVendor = async (): Promise<boolean> => {
@@ -441,8 +504,165 @@ export default function VendorManagementPage() {
 
       {/* ── Main split layout ── */}
       <div className="px-12 mt-8 pb-14">
+        <div className="mb-6 rounded-3xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 p-6 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sky-700">
+                <FileJson size={12} />
+                Vendor Import
+              </div>
+              <h2 className="mt-3 text-[24px] font-bold tracking-tight text-slate-900">
+                Import vendor APIs from Postman
+              </h2>
+              <p className="mt-1.5 text-[13px] text-slate-600">
+                Upload a Postman collection and the app will dynamically create the vendor, parameters, communication policy, item, and messages.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Collection File
+                </span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+                  className="block h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-700 shadow-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-white"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Vendor Name Override
+                </span>
+                <input
+                  type="text"
+                  value={importVendorName}
+                  onChange={(event) => setImportVendorName(event.target.value)}
+                  placeholder="Optional"
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => void handleImportSubmit()}
+                disabled={importLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 self-end rounded-xl bg-slate-900 px-5 text-[13px] font-bold text-white shadow-md transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Upload size={14} />
+                {importLoading ? "Importing..." : importPersist ? "Import Vendor" : "Preview Import"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <label className="inline-flex items-center gap-2 text-[13px] text-slate-600">
+              <input
+                type="checkbox"
+                checked={importPersist}
+                onChange={(event) => setImportPersist(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+              Persist imported records
+            </label>
+            <span className="text-[12px] text-slate-500">
+              Disable this to preview the extracted dynamic fields without saving.
+            </span>
+          </div>
+
+          {importError && (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700">
+              {importError}
+            </div>
+          )}
+
+          {importResult && (
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    Import Result
+                  </p>
+                  <h3 className="mt-1 text-[20px] font-bold text-slate-900">
+                    {importResult.vendorName}
+                  </h3>
+                  <p className="mt-1 text-[13px] text-slate-600">
+                    Auth: <span className="font-semibold text-slate-900">{importResult.authType}</span>
+                    {importResult.baseUrl ? ` • Base URL: ${importResult.baseUrl}` : ""}
+                  </p>
+                </div>
+                <div className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] ${importResult.persisted ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                  {importResult.persisted ? "Saved to backend" : "Preview only"}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Requests</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{importResult.requests.length}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Parameters</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{importResult.parameters.length}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Created</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{importResult.summary?.parameterCreated ?? 0}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Updated</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{importResult.summary?.parameterUpdated ?? 0}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Extracted Parameters
+                  </p>
+                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                    {importResult.parameters.slice(0, 20).map((parameter) => (
+                      <div key={parameter.name} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                        <div>
+                          <p className="text-[13px] font-semibold text-slate-900">{parameter.name}</p>
+                          <p className="text-[11px] text-slate-500">{parameter.scope} • {parameter.variableType}</p>
+                        </div>
+                        {parameter.isConstant && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600">
+                            Constant
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Imported Requests
+                  </p>
+                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                    {importResult.requests.map((request) => (
+                      <div key={`${request.method}-${request.path}-${request.name}`} className="rounded-xl bg-white px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">
+                            {request.method}
+                          </span>
+                          <p className="text-[13px] font-semibold text-slate-900">{request.name}</p>
+                        </div>
+                        <p className="mt-1 break-all font-mono text-[11px] text-slate-500">{request.path}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
         {/* ── Table column ── */}
+        </div>
         <div className="flex-1 min-w-0">
 
           {/* Filter bar */}

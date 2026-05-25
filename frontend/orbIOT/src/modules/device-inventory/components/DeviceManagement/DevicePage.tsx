@@ -39,6 +39,7 @@ type ItemTypeRow = {
 type CommunicationRow = {
   id: string | number;
   name?: PrimitiveValue;
+  groupName?: PrimitiveValue;
   itemType?: PrimitiveValue;
   itemTypeName?: PrimitiveValue;
 } & Record<string, PrimitiveValue>;
@@ -158,6 +159,18 @@ function readStringFromUnknown(value: unknown): string | undefined {
 function readRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   return value as Record<string, unknown>;
+}
+
+function matchesCatalogVendor(rawValue: PrimitiveValue | undefined, selectedVendor: string): boolean {
+  if (!selectedVendor) return true;
+
+  const normalized = String(rawValue ?? "")
+    .split(/[|,]/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (normalized.length === 0) return true;
+  return normalized.includes(selectedVendor);
 }
 
 function parseJsonRecord(value: PrimitiveValue | undefined): Record<string, unknown> {
@@ -506,64 +519,133 @@ export default function DeviceManagementPage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [formValues.vendorName, itemRows, vendorRows]);
 
+  const selectedVendor = String(formValues.vendorName ?? "").trim().toLowerCase();
+  const selectedItemType = String(formValues.itemTypeName ?? "").trim().toLowerCase();
+  const selectedCommunicationPolicy = String(formValues.communicationPolicy ?? "").trim().toLowerCase();
+
   const itemTypeOptions = useMemo(() => {
     const values = new Set<string>();
-    const selectedVendor = String(formValues.vendorName ?? "").trim().toLowerCase();
     itemTypeRows.forEach((row) => {
       const name = String(row.name ?? "").trim();
       if (!name) return;
-      const vendorName = String(row.vendorName ?? "").trim().toLowerCase();
-      if (!selectedVendor || !vendorName || vendorName === selectedVendor) {
+      if (matchesCatalogVendor(row.vendorName, selectedVendor)) {
         values.add(name);
       }
     });
     itemRows.forEach((row) => {
       const typeName = String(row.itemType ?? "").trim();
-      const vendorName = String(row.vendor ?? "").trim().toLowerCase();
-      if (typeName && (!selectedVendor || !vendorName || vendorName === selectedVendor)) {
+      if (typeName && matchesCatalogVendor(row.vendor, selectedVendor)) {
         values.add(typeName);
       }
     });
     const current = String(formValues.itemTypeName ?? "").trim();
     if (current) values.add(current);
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [formValues.itemTypeName, formValues.vendorName, itemRows, itemTypeRows]);
+  }, [formValues.itemTypeName, itemRows, itemTypeRows, selectedVendor]);
 
   const communicationPolicyOptions = useMemo(() => {
     const values = new Set<string>();
-    const selectedItemType = String(formValues.itemTypeName ?? "").trim().toLowerCase();
     communicationRows.forEach((row) => {
       const name = String(row.name ?? "").trim();
       const itemType = String(row.itemType ?? row.itemTypeName ?? "").trim().toLowerCase();
-      if (name && (!selectedItemType || !itemType || itemType === selectedItemType)) {
+      const vendorName = String(row.groupName ?? "").trim().toLowerCase();
+      if (
+        name &&
+        matchesCatalogVendor(vendorName, selectedVendor) &&
+        (!selectedItemType || !itemType || itemType === selectedItemType)
+      ) {
         values.add(name);
       }
     });
     itemRows.forEach((row) => {
       const name = String(row.communicationPolicy ?? "").trim();
       const itemType = String(row.itemType ?? "").trim().toLowerCase();
-      if (name && (!selectedItemType || !itemType || itemType === selectedItemType)) {
+      if (
+        name &&
+        matchesCatalogVendor(row.vendor, selectedVendor) &&
+        (!selectedItemType || !itemType || itemType === selectedItemType)
+      ) {
         values.add(name);
       }
     });
     const current = String(formValues.communicationPolicy ?? "").trim();
     if (current) values.add(current);
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [communicationRows, formValues.communicationPolicy, formValues.itemTypeName, itemRows]);
+  }, [communicationRows, formValues.communicationPolicy, itemRows, selectedItemType, selectedVendor]);
 
   const parameterOptions = useMemo(() => {
     const values = new Set<string>();
-    const selectedVendor = String(formValues.vendorName ?? "").trim().toLowerCase();
     parameterRows.forEach((row) => {
       const name = String(row.name ?? "").trim();
       if (!name) return;
-      const vendors = String(row.vendors ?? "").trim().toLowerCase();
-      if (!selectedVendor || !vendors || vendors.includes(selectedVendor)) {
+      if (matchesCatalogVendor(row.vendors, selectedVendor)) {
         values.add(name);
       }
     });
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [formValues.vendorName, parameterRows]);
+  }, [parameterRows, selectedVendor]);
+
+  const messageOptions = useMemo(() => {
+    return messageRows
+      .filter((row) => {
+        const rowItemType = String(row.itemType ?? "").trim().toLowerCase();
+        const rowPolicy = String(row.communicationPolicy ?? "").trim().toLowerCase();
+
+        if (selectedItemType && rowItemType && rowItemType !== selectedItemType) {
+          return false;
+        }
+
+        if (
+          selectedCommunicationPolicy &&
+          rowPolicy &&
+          rowPolicy !== selectedCommunicationPolicy
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((row) => ({
+        id: String(row.id),
+        name: String(row.name ?? row.topic ?? "Unnamed Message"),
+        topic: String(row.topic ?? ""),
+      }));
+  }, [messageRows, selectedCommunicationPolicy, selectedItemType]);
+
+  const itemOptions = useMemo(() => {
+    return itemRows
+      .filter((row) => {
+        const rowVendor = String(row.vendor ?? "").trim().toLowerCase();
+        const rowItemType = String(row.itemType ?? "").trim().toLowerCase();
+        const rowPolicy = String(row.communicationPolicy ?? "").trim().toLowerCase();
+
+        if (!matchesCatalogVendor(row.vendor, selectedVendor)) {
+          return false;
+        }
+
+        if (selectedItemType && rowItemType && rowItemType !== selectedItemType) {
+          return false;
+        }
+
+        if (
+          selectedCommunicationPolicy &&
+          rowPolicy &&
+          rowPolicy !== selectedCommunicationPolicy
+        ) {
+          return false;
+        }
+
+        return !selectedVendor || !rowVendor || rowVendor === selectedVendor || matchesCatalogVendor(row.vendor, selectedVendor);
+      })
+      .map((row) => ({
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        itemCode: String(row.itemCode ?? ""),
+        vendor: String(row.vendor ?? ""),
+        itemType: String(row.itemType ?? ""),
+        communicationPolicy: String(row.communicationPolicy ?? ""),
+      }));
+  }, [itemRows, selectedCommunicationPolicy, selectedItemType, selectedVendor]);
 
   useEffect(() => {
     const shouldCreate = searchParams.get("create");
@@ -733,14 +815,19 @@ export default function DeviceManagementPage() {
       const next = { ...prev, [key]: value };
 
       if (key === "vendorName") {
+        next.parameterName = "";
         next.itemTypeName = "";
         next.communicationPolicy = "";
+        next.messageName = "";
         next.itemName = "";
         next.itemCode = "";
       }
 
       if (key === "itemTypeName") {
         next.communicationPolicy = "";
+        next.messageName = "";
+        next.itemName = "";
+        next.itemCode = "";
         const matchingItem = itemRows.find((row) => {
           const rowType = String(row.itemType ?? "").trim().toLowerCase();
           const rowVendor = String(row.vendor ?? "").trim().toLowerCase();
@@ -759,6 +846,7 @@ export default function DeviceManagementPage() {
       }
 
       if (key === "communicationPolicy" && !next.itemCode) {
+        next.messageName = "";
         const matchingItem = itemRows.find((row) => {
           const rowType = String(row.itemType ?? "").trim().toLowerCase();
           const rowPolicy = String(row.communicationPolicy ?? "").trim().toLowerCase();
@@ -917,19 +1005,8 @@ export default function DeviceManagementPage() {
           parameterOptions={parameterOptions}
           itemTypeOptions={itemTypeOptions}
           communicationPolicyOptions={communicationPolicyOptions}
-          messageOptions={messageRows.map((row) => ({
-            id: String(row.id),
-            name: String(row.name ?? row.topic ?? "Unnamed Message"),
-            topic: String(row.topic ?? ""),
-          }))}
-          itemOptions={itemRows.map((row) => ({
-            id: String(row.id),
-            name: String(row.name ?? ""),
-            itemCode: String(row.itemCode ?? ""),
-            vendor: String(row.vendor ?? ""),
-            itemType: String(row.itemType ?? ""),
-            communicationPolicy: String(row.communicationPolicy ?? ""),
-          }))}
+          messageOptions={messageOptions}
+          itemOptions={itemOptions}
           onCreateVendor={async (payload) => {
             await createVendorOne(payload as Partial<VendorRow>);
           }}

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../../middleware/error.middleware";
 import { createVendorSchema, updateVendorSchema } from "./vendor.schema";
+import { importVendorPostmanSchema } from "./vendor-import.schema";
 import { vendorService } from "./vendor.service";
 
 export const vendorController = {
@@ -44,6 +45,27 @@ export const vendorController = {
     try {
       await vendorService.remove(req.params.id);
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async importPostmanCollection(req: Request, res: Response, next: NextFunction) {
+    try {
+      const file = (req as Request & { file?: Express.Multer.File }).file;
+      if (!file?.buffer?.length) {
+        throw new ApiError(400, "Postman collection JSON file is required");
+      }
+
+      const payload = importVendorPostmanSchema.parse(req.body ?? {});
+      const result = await vendorService.importPostmanCollection({
+        fileName: file.originalname,
+        buffer: file.buffer,
+        vendorName: payload.vendorName,
+        persist: payload.persist,
+      });
+
+      res.status(201).json(result);
     } catch (err) {
       next(err);
     }
