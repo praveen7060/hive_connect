@@ -237,6 +237,25 @@ p {
   backdrop-filter: blur(14px);
 }
 
+.flow-module-hero {
+  position: relative;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(6, 11, 20, 0.94));
+  box-shadow: 0 26px 52px rgba(2, 6, 23, 0.24);
+}
+
+.flow-module-hero__mesh {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 30% 20%, black 18%, transparent 82%);
+  pointer-events: none;
+}
+
 .flow-map {
   position: relative;
   overflow: hidden;
@@ -448,4 +467,119 @@ p {
   background: var(--iotiq-primary) !important;
   border-color: var(--iotiq-primary) !important;
   color: #ffffff !important;
+}
+
+.app-console-theme .rounded-\[26px\],
+.app-console-theme .rounded-\[24px\],
+.app-console-theme .rounded-\[20px\],
+.device-control-theme .rounded-\[24px\],
+.device-control-theme .rounded-\[20px\],
+.device-control-theme .rounded-\[18px\] {
+  backdrop-filter: blur(14px);
+}
+
+.app-console-theme > section:not(.flow-module-hero),
+.device-control-theme > div:not(.flow-module-hero),
+.device-control-theme > article,
+.device-control-theme > section > article {
+  position: relative;
+}
+
+.app-console-theme .rounded-\[26px\],
+.device-control-theme .rounded-\[24px\] {
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.8), rgba(6, 11, 20, 0.92)) !important;
+  box-shadow: 0 22px 46px rgba(2, 6, 23, 0.22) !important;
+}
+
+.app-console-theme table thead tr,
+.device-control-theme table thead tr {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(148, 163, 184, 0.12) !important;
+}
+
+.app-console-theme table tbody tr,
+.device-control-theme table tbody tr {
+  border-color: rgba(148, 163, 184, 0.08) !important;
+}
+
+.app-console-theme table tbody tr:hover,
+.device-control-theme table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.app-console-theme [class*="text-slate-900"],
+.app-console-theme [class*="text-slate-800"],
+.device-control-theme [class*="text-slate-900"],
+.device-control-theme [class*="text-slate-800"] {
+  color: #f8fafc !important;
+}
+
+.app-console-theme [class*="text-slate-700"],
+.app-console-theme [class*="text-slate-600"],
+.app-console-theme [class*="text-slate-500"],
+.device-control-theme [class*="text-slate-700"],
+.device-control-theme [class*="text-slate-600"],
+.device-control-theme [class*="text-slate-500"],
+.device-control-theme [class*="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+
+.app-console-theme .app-shell-input,
+.app-console-theme .app-shell-select,
+.device-control-theme .app-shell-input,
+.device-control-theme .app-shell-select {
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #e2e8f0 !important;
+  border-radius: 16px;
+  min-height: 44px;
+}
+
+.app-console-theme .app-shell-search,
+.device-control-theme .app-shell-search {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  backdrop-filter: blur(14px);
+}
+
+.app-console-theme .app-shell-search svg,
+.device-control-theme .app-shell-search svg {
+  color: #94a3b8 !important;
+}
+
+.app-console-theme .rounded-\[18px\],
+.device-control-theme .rounded-\[18px\] {
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.app-console-theme button[class*="bg-slate-900"],
+.device-control-theme button[class*="bg-slate-900"] {
+  background: linear-gradient(135deg, #0f766e, #0891b2) !important;
+  border-color: rgba(103, 232, 249, 0.2) !important;
+  color: #ecfeff !important;
+}
+
+.app-console-theme button[class*="border-slate-200"],
+.device-control-theme button[class*="border-slate-200"] {
+  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #cbd5e1 !important;
+}
+
+.app-console-theme .bg-sky-50\/80,
+.device-control-theme .bg-slate-50\/60,
+.device-control-theme .bg-slate-50 {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.app-console-theme .border-sky-200\/80,
+.device-control-theme .border-slate-200 {
+  border-color: rgba(148, 163, 184, 0.12) !important;
+}
+
+.inventory-flow-shell {
+  position: relative;
 }
