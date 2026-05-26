@@ -1,4 +1,5 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { ensurePrivateVersionedBucket } from "../../utils/s3BucketSetup";
 
 type QrAssetUploadInput = {
   deviceRecordId: string;
@@ -106,6 +107,12 @@ export async function uploadEnrollmentQrSvgToS3(
   });
 
   try {
+    await ensurePrivateVersionedBucket({
+      client: s3,
+      bucket: config.bucket,
+      region: config.region,
+    });
+
     await s3.send(
       new PutObjectCommand({
         Bucket: config.bucket,

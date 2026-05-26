@@ -10,6 +10,7 @@ export const provisionThingSchema = z.object({
   s3Prefix: z.string().optional(),
   channels: z.string().optional(),
   forceProvision: z.boolean().optional(),
+  assetVersion: z.number().int().positive().optional(),
 });
 
 export const controlDeviceSchema = z.object({
@@ -54,6 +55,7 @@ export const catalogProvisionSchema = z.object({
   forceProvision: z.boolean().optional(),
   attributes: z.record(z.string(), z.string()).optional(),
   deviceType: z.string().min(1).optional(),
+  assetVersion: z.number().int().positive().optional(),
 });
 
 export const catalogExecuteCommandSchema = z.object({
@@ -72,3 +74,13 @@ export const catalogSubscriptionSchema = z.object({
     message: "Either topics or messageIds must be provided",
     path: ["topics"],
   });
+
+export const telemetryIngestSchema = z.object({
+  serialNumber: z.string().min(1),
+  topic: z.string().min(1).optional(),
+  thingId: z.string().min(1).optional(),
+  vendorName: z.string().min(1).optional(),
+  source: z.string().min(1).optional(),
+  receivedAt: z.string().datetime().optional(),
+  payload: z.record(z.string(), z.unknown()),
+});

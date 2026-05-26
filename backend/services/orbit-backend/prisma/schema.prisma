@@ -132,9 +132,9 @@ model Item {
 model Device {
   id               String   @id @default(uuid())
   name             String
-  foreignId        String?
+  foreignId        String?  @unique
   gatewayForeignId String?
-  serialNumber     String
+  serialNumber     String   @unique
   image            String?
   icon             String?
   connectionType   String
@@ -150,11 +150,87 @@ model Device {
   country          String?
   zipCode          String?
   status           String   @default("provisioning")
+  onboardingVersion Int     @default(0)
+  lastProvisionedAt DateTime?
+  lastQrGeneratedAt DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   enrollmentQrs    DeviceEnrollmentQr[]
   appClaims        DeviceAppClaim[]
+  certificateAssets DeviceCertificateAsset[]
+  onboardingQrs    DeviceOnboardingQrAsset[]
+  provisioningAudits DeviceProvisioningAudit[]
+}
+
+model DeviceCertificateAsset {
+  id             String   @id @default(uuid())
+  deviceId       String
+  version        Int
+  thingId        String
+  certificateId  String   @unique
+  certificateArn String
+  bucket         String
+  region         String
+  certificateKey String
+  privateKeyKey  String
+  publicKeyKey   String
+  metadataKey    String
+  status         String   @default("active")
+  checksum       String?
+  uploadedAt     DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  device         Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  onboardingQrs  DeviceOnboardingQrAsset[]
+
+  @@unique([deviceId, version])
+  @@index([deviceId, status])
+}
+
+model DeviceOnboardingQrAsset {
+  id                 String   @id @default(uuid())
+  deviceId           String
+  certificateAssetId String?
+  version            Int
+  bucket             String
+  region             String
+  objectKey          String
+  contentType        String   @default("image/svg+xml")
+  checksum           String
+  payload            String
+  status             String   @default("active")
+  generatedAt        DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  device             Device                  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  certificateAsset   DeviceCertificateAsset? @relation(fields: [certificateAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([deviceId, version])
+  @@index([deviceId, status])
+}
+
+model DeviceProvisioningAudit {
+  id                 String   @id @default(uuid())
+  deviceId           String?
+  workflowId         String
+  action             String
+  status             String
+  deviceSerialNumber String
+  thingId            String?
+  message            String?
+  requestPayload     String?
+  responsePayload    String?
+  errorPayload       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  device             Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId, createdAt])
+  @@index([workflowId, createdAt])
 }
 
 model ConsoleApplication {

@@ -6,6 +6,7 @@ type DeviceRecord = NonNullable<Awaited<ReturnType<typeof prisma.device.findUniq
 type ItemRecord = Awaited<ReturnType<typeof prisma.item.findFirst>>;
 type CommunicationRecord = Awaited<ReturnType<typeof prisma.communication.findFirst>>;
 type MessageRecord = NonNullable<Awaited<ReturnType<typeof prisma.message.findFirst>>>;
+type VendorRecord = Awaited<ReturnType<typeof prisma.vendor.findFirst>>;
 
 type CommandProfile = {
   key: string;
@@ -19,6 +20,7 @@ type CommandProfile = {
 
 export type CatalogProfile = {
   device: DeviceRecord;
+  vendor: VendorRecord | null;
   item: ItemRecord | null;
   communication: CommunicationRecord | null;
   messages: MessageRecord[];
@@ -38,6 +40,17 @@ export type CatalogProfile = {
     channels?: string;
     forceProvision?: boolean;
     attributes: Record<string, string>;
+  };
+  protocol: {
+    transport: string;
+    adapterKey: string;
+    direction: string;
+    authStrategy?: string;
+    protocolName?: string;
+    protocolVersion?: string;
+    executionMode: string;
+    inboundTopics: string[];
+    metadata: JsonMap;
   };
 };
 
@@ -183,6 +196,21 @@ async function resolveItem(device: DeviceRecord, catalogMetadata: JsonMap): Prom
   return null;
 }
 
+async function resolveVendor(item: ItemRecord | null, catalogMetadata: JsonMap): Promise<VendorRecord | null> {
+  const vendorName =
+    getString(catalogMetadata.vendorName) ??
+    getString(catalogMetadata.vendor) ??
+    getString(item?.vendor);
+
+  if (!vendorName) {
+    return null;
+  }
+
+  return prisma.vendor.findFirst({
+    where: { name: vendorName },
+  });
+}
+
 function buildCommandProfiles(
   messages: MessageRecord[],
   communication: CommunicationRecord | null,
@@ -249,6 +277,7 @@ export async function resolveCatalogProfile(deviceRecordId: string): Promise<Cat
   const catalogMetadata = getObject(rawMetadata.catalog);
   const iotMetadata = getObject(rawMetadata.iot);
   const item = await resolveItem(device, catalogMetadata);
+  const vendor = await resolveVendor(item, catalogMetadata);
 
   const communicationPolicy =
     getString(catalogMetadata.communicationPolicy) ??
@@ -310,9 +339,42 @@ export async function resolveCatalogProfile(deviceRecordId: string): Promise<Cat
     device.serialNumber;
 
   const commands = buildCommandProfiles(messages, communication, effectiveCatalog, provisioningThingName);
+  const communicationMetadata = parseJsonObject(communication?.metadata);
+  const inboundTopics = Array.from(
+    new Set(
+      messages
+        .filter((message) => !normalizeCommandKey(getString(message.commandType)))
+        .map((message) => renderTemplateString(message.topic, {
+          thingId: provisioningThingName,
+          thingName: provisioningThingName,
+          connectAdminDeviceId,
+        }))
+        .map((topic) => topic.trim())
+        .filter(Boolean)
+    )
+  );
+  const protocolName =
+    getString(effectiveCatalog.protocol) ??
+    getString(communicationMetadata.protocol) ??
+    getString(communication?.protocol) ??
+    "MQTT";
+  const transport =
+    getString(effectiveCatalog.transport) ??
+    getString(communicationMetadata.transport) ??
+    getString(communication?.transport) ??
+    protocolName;
+  const adapterKey =
+    getString(effectiveCatalog.adapterKey) ??
+    getString(communicationMetadata.adapterKey) ??
+    (transport.toLowerCase().includes("http") ? "http-vendor" : "mqtt-aws-iot");
+  const executionMode =
+    getString(effectiveCatalog.executionMode) ??
+    getString(communicationMetadata.executionMode) ??
+    "request-response";
 
   return {
     device,
+    vendor,
     item,
     communication,
     messages,
@@ -340,6 +402,29 @@ export async function resolveCatalogProfile(deviceRecordId: string): Promise<Cat
         project: device.project,
         connectionType: device.connectionType,
         ...coerceRecordStringValues(effectiveCatalog.attributes),
+      },
+    },
+    protocol: {
+      transport,
+      adapterKey,
+      direction:
+        getString(effectiveCatalog.direction) ??
+        getString(communicationMetadata.direction) ??
+        "bidirectional",
+      authStrategy:
+        getString(effectiveCatalog.authStrategy) ??
+        getString(communicationMetadata.authStrategy) ??
+        getString(vendor?.authType),
+      protocolName,
+      protocolVersion:
+        getString(effectiveCatalog.protocolVersion) ??
+        getString(communicationMetadata.protocolVersion) ??
+        getString(communication?.version),
+      executionMode,
+      inboundTopics,
+      metadata: {
+        ...communicationMetadata,
+        ...getObject(effectiveCatalog.protocolMetadata),
       },
     },
   };

@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --iotiq-bg: #eaf3ff;
-  --iotiq-bg-soft: #f2f8ff;
-  --iotiq-surface: #f8fbff;
-  --iotiq-surface-alt: #edf5ff;
-  --iotiq-text: #0f172a;
-  --iotiq-muted: #475569;
-  --iotiq-border: #cfe0f5;
-  --iotiq-primary: #0a6ecf;
-  --iotiq-primary-hover: #095db0;
-  --iotiq-accent: #0b8b8f;
+  --iotiq-bg: #08111d;
+  --iotiq-bg-soft: #101a27;
+  --iotiq-surface: rgba(9, 17, 31, 0.82);
+  --iotiq-surface-alt: rgba(17, 25, 40, 0.86);
+  --iotiq-text: #e2e8f0;
+  --iotiq-muted: #94a3b8;
+  --iotiq-border: rgba(148, 163, 184, 0.14);
+  --iotiq-primary: #22d3ee;
+  --iotiq-primary-hover: #67e8f9;
+  --iotiq-accent: #818cf8;
 
   color: var(--iotiq-text);
   background: var(--iotiq-bg);
@@ -44,8 +44,9 @@ body {
   line-height: 1.75;
   letter-spacing: -0.011em;
   background:
-    radial-gradient(1200px 520px at 100% -10%, #cfe5ff 0%, rgba(207, 229, 255, 0) 62%),
-    radial-gradient(900px 420px at -10% 100%, #dff0ff 0%, rgba(223, 240, 255, 0) 64%),
+    radial-gradient(1100px 620px at 100% -10%, rgba(34, 211, 238, 0.13) 0%, rgba(34, 211, 238, 0) 66%),
+    radial-gradient(800px 520px at -10% 100%, rgba(129, 140, 248, 0.14) 0%, rgba(129, 140, 248, 0) 68%),
+    radial-gradient(600px 420px at 50% 20%, rgba(15, 118, 110, 0.08) 0%, rgba(15, 118, 110, 0) 72%),
     var(--iotiq-bg);
 }
 
@@ -88,6 +89,7 @@ p {
   line-height: 1.02;
   font-weight: 700;
   letter-spacing: -0.055em;
+  font-family: "Poppins", "Inter", sans-serif;
 }
 
 .expo-page-title {
@@ -95,6 +97,7 @@ p {
   line-height: 1.05;
   font-weight: 620;
   letter-spacing: -0.045em;
+  font-family: "Poppins", "Inter", sans-serif;
 }
 
 .expo-section-title {
@@ -102,6 +105,7 @@ p {
   line-height: 1.1;
   font-weight: 620;
   letter-spacing: -0.042em;
+  font-family: "Poppins", "Inter", sans-serif;
 }
 
 .expo-card-title {
@@ -130,6 +134,171 @@ p {
   line-height: 1.08;
   font-weight: 700;
   letter-spacing: -0.04em;
+}
+
+.flow-app-shell {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(8, 17, 29, 0.98), rgba(4, 10, 18, 0.98));
+}
+
+.flow-app-shell__bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.flow-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 94%);
+}
+
+.flow-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.7;
+  animation: float-orb 14s ease-in-out infinite;
+}
+
+.flow-orb--one {
+  top: -80px;
+  right: -90px;
+  width: 280px;
+  height: 280px;
+  background: rgba(34, 211, 238, 0.22);
+}
+
+.flow-orb--two {
+  left: 22%;
+  top: 26%;
+  width: 220px;
+  height: 220px;
+  background: rgba(59, 130, 246, 0.12);
+  animation-delay: -4s;
+}
+
+.flow-orb--three {
+  left: -100px;
+  bottom: 0;
+  width: 260px;
+  height: 260px;
+  background: rgba(129, 140, 248, 0.18);
+  animation-delay: -8s;
+}
+
+.flow-panel {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(6, 11, 20, 0.9));
+  box-shadow:
+    0 30px 60px rgba(2, 6, 23, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(18px);
+}
+
+.flow-panel--hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+}
+
+.flow-panel--hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 20% -1px 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.5), transparent);
+}
+
+.flow-page-title {
+  font-family: "Poppins", "Inter", sans-serif;
+  font-size: clamp(2rem, 3.1vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+}
+
+.flow-copy {
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+.flow-card {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(5, 11, 20, 0.92));
+  box-shadow: 0 24px 50px rgba(2, 6, 23, 0.24);
+  backdrop-filter: blur(14px);
+}
+
+.flow-map {
+  position: relative;
+  overflow: hidden;
+}
+
+.flow-map::before {
+  content: "";
+  position: absolute;
+  inset: 22% 8% auto 8%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(103, 232, 249, 0.16), rgba(165, 180, 252, 0.28), rgba(251, 191, 36, 0.16));
+}
+
+.flow-map::after {
+  content: "";
+  position: absolute;
+  inset: auto 18% 24% 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(110, 231, 183, 0.26), transparent);
+}
+
+.flow-node {
+  position: relative;
+  overflow: hidden;
+}
+
+.flow-node::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 120px;
+  height: 120px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  filter: blur(18px);
+}
+
+.flow-node--cyan {
+  box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.12);
+}
+
+.flow-node--emerald {
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.12);
+}
+
+.flow-node--indigo {
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.12);
+}
+
+.flow-node--amber {
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.12);
+}
+
+@keyframes float-orb {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, 18px, 0) scale(1.06);
+  }
 }
 
 .inventory-form-shell {
