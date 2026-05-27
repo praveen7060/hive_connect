@@ -21,7 +21,7 @@ import { useCrudResource } from "../device-inventory/hooks";
 
 type PrimitiveValue = string | number | boolean | null;
 
-type AppRow = {
+type AppRow = { 
   id: string | number;
   createdAt: string;
   updatedAt: string;
@@ -29,7 +29,7 @@ type AppRow = {
   status?: string;
   metadata?: string;
 } & Record<string, PrimitiveValue>;
-
+  
 type FormState = {
   name: string;
   domain: string;
