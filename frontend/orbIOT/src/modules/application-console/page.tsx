@@ -55,6 +55,10 @@ type LinkDraft = {
   clientId: string;
   token: string;
   qrPayload: string;
+  qrSvg: string;
+  deepLink: string;
+  expiresAt: string;
+  installationId: string;
   generatedAt: string;
   linked: boolean;
 };
@@ -82,6 +86,10 @@ const INITIAL_LINK_DRAFT: LinkDraft = {
   clientId: "",
   token: "",
   qrPayload: "",
+  qrSvg: "",
+  deepLink: "",
+  expiresAt: "",
+  installationId: "",
   generatedAt: "",
   linked: false,
 };
@@ -144,6 +152,32 @@ function getLinkedMeta(row: AppRow) {
     token: typeof record.token === "string" ? record.token : "",
     linkedAt: typeof record.linkedAt === "string" ? record.linkedAt : "",
     status: typeof record.status === "string" ? record.status : "linked",
+  };
+}
+
+function getAppLinkSessionMeta(row: AppRow) {
+  const metadata = parseMetadata(row.metadata);
+  const appLinkSessions =
+    metadata.appLinkSessions && typeof metadata.appLinkSessions === "object" && !Array.isArray(metadata.appLinkSessions)
+      ? (metadata.appLinkSessions as Record<string, unknown>)
+      : {};
+  const pending = Array.isArray(appLinkSessions.pending)
+    ? (appLinkSessions.pending as Array<Record<string, unknown>>)
+    : [];
+  const latestPending = [...pending]
+    .filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    .sort(
+      (left, right) =>
+        new Date(String(right.issuedAt ?? "")).getTime() - new Date(String(left.issuedAt ?? "")).getTime()
+    )[0];
+
+  return {
+    token: typeof latestPending?.token === "string" ? latestPending.token : "",
+    deepLink: typeof latestPending?.deepLink === "string" ? latestPending.deepLink : "",
+    expiresAt: typeof latestPending?.expiresAt === "string" ? latestPending.expiresAt : "",
+    generatedAt: typeof latestPending?.issuedAt === "string" ? latestPending.issuedAt : "",
+    clientId: typeof latestPending?.clientId === "string" ? latestPending.clientId : "",
+    status: typeof latestPending?.status === "string" ? latestPending.status : "idle",
   };
 }
 
@@ -325,13 +359,32 @@ export default function ApplicationConsolePage() {
   const openLink = (row?: AppRow) => {
     const target = row ?? rows[0];
     const meta = target ? getLinkedMeta(target) : null;
+    const pendingMeta = target ? getAppLinkSessionMeta(target) : null;
     const token = meta?.token || "";
     setLinkDraft({
       appId: target ? String(target.id) : "",
-      clientId: meta?.clientId || String(target?.clientId ?? ""),
-      token,
-      qrPayload: token ? JSON.stringify({ appId: target?.id, token, clientId: meta?.clientId || target?.clientId }, null, 2) : "",
-      generatedAt: meta?.linkedAt || "",
+      clientId: pendingMeta?.clientId || meta?.clientId || String(target?.clientId ?? ""),
+      token: pendingMeta?.token || token,
+      qrPayload: pendingMeta?.token
+        ? JSON.stringify(
+            {
+              type: "app_account_link",
+              appId: target?.id,
+              token: pendingMeta.token,
+              clientId: pendingMeta.clientId || meta?.clientId || target?.clientId,
+              expiresAt: pendingMeta.expiresAt || undefined,
+            },
+            null,
+            2
+          )
+        : token
+          ? JSON.stringify({ appId: target?.id, token, clientId: meta?.clientId || target?.clientId }, null, 2)
+          : "",
+      qrSvg: "",
+      deepLink: pendingMeta?.deepLink || "",
+      expiresAt: pendingMeta?.expiresAt || "",
+      installationId: "",
+      generatedAt: pendingMeta?.generatedAt || meta?.linkedAt || "",
       linked: meta?.linked || false,
     });
     setLinkError(null);
@@ -418,72 +471,60 @@ export default function ApplicationConsolePage() {
 
   const selectedLinkedApp = rows.find((row) => String(row.id) === linkDraft.appId) ?? null;
 
-  const generateLinkQr = () => {
+  const generateLinkQr = async () => {
     if (!linkDraft.appId) {
       setLinkError("Select an application before generating a link QR.");
       return;
     }
 
-    const token = `link_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
-    const generatedAt = new Date().toISOString();
-    const payload = JSON.stringify(
-      {
-        type: "app_account_link",
-        appId: linkDraft.appId,
-        token,
+    try {
+      const response = await deviceInventoryApi.applicationConsole.createLinkQr(linkDraft.appId, {
         clientId: linkDraft.clientId || undefined,
-        generatedAt,
-      },
-      null,
-      2
-    );
-
-    setLinkDraft((current) => ({
-      ...current,
-      token,
-      qrPayload: payload,
-      generatedAt,
-      linked: false,
-    }));
-    setLinkError(null);
-    setLinkSuccess(null);
+      });
+      const qr = response?.qr && typeof response.qr === "object" ? (response.qr as Record<string, unknown>) : {};
+      const payload = qr.payload && typeof qr.payload === "object" ? qr.payload : {};
+      setLinkDraft((current) => ({
+        ...current,
+        token: typeof qr.token === "string" ? qr.token : "",
+        qrPayload: JSON.stringify(payload, null, 2),
+        qrSvg: typeof qr.svg === "string" ? qr.svg : "",
+        deepLink: typeof qr.deepLink === "string" ? qr.deepLink : "",
+        expiresAt: typeof response?.link?.expiresAt === "string" ? response.link.expiresAt : "",
+        generatedAt: new Date().toISOString(),
+        linked: false,
+      }));
+      setLinkError(null);
+      setLinkSuccess("Link QR generated. Scan it from the mobile app to complete linking.");
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Unable to generate link QR");
+    }
   };
 
   const confirmLink = async () => {
-    if (!selectedLinkedApp) {
-      setLinkError("Choose an application to link.");
+    if (!selectedLinkedApp || !linkDraft.token) {
+      setLinkError("Generate a link QR before confirming the linked account.");
       return;
     }
 
-    if (!linkDraft.token) {
-      setLinkError("Generate a QR token before confirming the linked account.");
+    if (!linkDraft.installationId.trim()) {
+      setLinkError("Enter an installation ID to simulate the mobile app link.");
       return;
     }
-
-    const metadata = parseMetadata(selectedLinkedApp.metadata);
-    const nextMetadata = JSON.stringify(
-      {
-        ...metadata,
-        linkedAccount: {
-          linked: true,
-          status: "linked",
-          clientId: linkDraft.clientId || undefined,
-          token: linkDraft.token,
-          linkedAt: new Date().toISOString(),
-        },
-      },
-      null,
-      2
-    );
 
     try {
-      await updateOne(selectedLinkedApp.id, {
-        metadata: nextMetadata,
+      await deviceInventoryApi.applicationConsole.claimLinkQr({
+        qrToken: linkDraft.token,
+        installationId: linkDraft.installationId.trim(),
         clientId: linkDraft.clientId || undefined,
+        platform: "web-preview",
+        appVersion: "orbIOT-console",
       });
       setLinkDraft((current) => ({ ...current, linked: true }));
       setLinkSuccess(`Linked account confirmed for ${selectedLinkedApp.name}.`);
       setLinkError(null);
+      await updateOne(selectedLinkedApp.id, {
+        clientId: linkDraft.clientId || undefined,
+      });
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : "Failed to confirm linked account");
     }
@@ -750,7 +791,7 @@ export default function ApplicationConsolePage() {
                         className="inline-flex items-center gap-2 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-4 py-2.5 text-[12px] font-medium text-[var(--iotiq-text)] transition hover:bg-white"
                       >
                         <CheckCircle2 size={14} />
-                        Confirm Linked Account
+                        Simulate Mobile Link
                       </button>
                     </div>
                   </div>
@@ -759,7 +800,14 @@ export default function ApplicationConsolePage() {
                 <div className="grid gap-4 lg:grid-cols-[210px_minmax(0,1fr)]">
                   <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4">
                     <div className="flex h-full flex-col items-center justify-center gap-3">
-                      <PseudoQr value={linkDraft.qrPayload || linkDraft.token || "app-link"} />
+                      {linkDraft.qrSvg ? (
+                        <div
+                          className="flex h-[188px] w-[188px] items-center justify-center overflow-hidden rounded-[20px] bg-white p-3 shadow-[0_12px_24px_rgba(17,17,17,0.08)]"
+                          dangerouslySetInnerHTML={{ __html: linkDraft.qrSvg }}
+                        />
+                      ) : (
+                        <PseudoQr value={linkDraft.qrPayload || linkDraft.token || "app-link"} />
+                      )}
                       <p className="text-[11px] text-[var(--iotiq-muted)]">
                         {linkDraft.token ? "Scan from the mobile app to link this trusted account." : "Generate a link QR to begin."}
                       </p>
@@ -773,7 +821,28 @@ export default function ApplicationConsolePage() {
                         <Row label="Application" value={selectedLinkedApp ? String(selectedLinkedApp.name) : "Not selected"} />
                         <Row label="Client ID" value={linkDraft.clientId || "Not entered"} />
                         <Row label="Token" value={linkDraft.token || "Not generated"} />
+                        <Row label="Deep link" value={linkDraft.deepLink || "Pending"} />
+                        <Row label="Expires" value={linkDraft.expiresAt ? fmtDate(linkDraft.expiresAt) : "Pending"} />
                         <Row label="Generated" value={linkDraft.generatedAt ? fmtDate(linkDraft.generatedAt) : "Pending"} />
+                      </div>
+                    </div>
+
+                    <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(17,17,17,0.04)]">
+                      <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Mobile simulator</p>
+                      <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                        Optional helper for testing the mobile link claim without opening the native app.
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        <Field label="Installation ID">
+                          <input
+                            value={linkDraft.installationId}
+                            onChange={(event) =>
+                              setLinkDraft((current) => ({ ...current, installationId: event.target.value }))
+                            }
+                            className={inputClass()}
+                            placeholder="device-installation-id"
+                          />
+                        </Field>
                       </div>
                     </div>
 

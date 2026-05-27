@@ -390,6 +390,14 @@ export const deviceInventoryApi = {
         "POST",
         payload ?? {}
       ),
+    createLinkQr: (appId: string | number, payload?: Record<string, unknown>) =>
+      apiRequest<any>(
+        `/application-console/apps/${encodeURIComponent(String(appId))}/link-qrs`,
+        "POST",
+        payload ?? {}
+      ),
+    claimLinkQr: (payload: Record<string, unknown>) =>
+      apiRequest<any>("/application-console/link-accounts/claim", "POST", payload),
   },
   parameterImports: {
     importPdf: (file: File, vendor: string, persist: boolean = true) => {

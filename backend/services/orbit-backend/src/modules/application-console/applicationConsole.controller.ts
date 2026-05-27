@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import {
+  claimAppLinkQrSchema,
   claimEnrollmentQrSchema,
+  createAppLinkQrSchema,
   createConsoleApplicationSchema,
   createEnrollmentQrSchema,
   executeClaimedCommandSchema,
@@ -57,6 +59,15 @@ export const applicationConsoleController = {
     }
   },
 
+  async createAppLinkQr(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = createAppLinkQrSchema.parse(req.body ?? {});
+      res.status(201).json(await applicationConsoleService.createAppLinkQr(req.params.appId, payload));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async createEnrollmentQr(req: Request, res: Response, next: NextFunction) {
     try {
       const payload = createEnrollmentQrSchema.parse(req.body ?? {});
@@ -70,6 +81,15 @@ export const applicationConsoleController = {
     try {
       const payload = claimEnrollmentQrSchema.parse(req.body);
       res.status(201).json(await applicationConsoleService.claimEnrollmentQr(payload));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async claimAppLinkQr(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = claimAppLinkQrSchema.parse(req.body);
+      res.status(201).json(await applicationConsoleService.claimAppLinkQr(payload));
     } catch (error) {
       next(error);
     }

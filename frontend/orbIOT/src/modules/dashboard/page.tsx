@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Activity, AppWindow, ArrowRight, Cpu, HardDrive, QrCode, ShieldCheck, TrendingUp } from "lucide-react";
+import { Activity, AppWindow, ArrowRight, Clock3, HardDrive, Power, QrCode, ShieldCheck, TrendingUp } from "lucide-react";
 import { deviceInventoryApi } from "../device-inventory/api";
 import { useCrudResource } from "../device-inventory/hooks";
 
@@ -11,37 +11,81 @@ type GenericRow = {
 } & Record<string, PrimitiveValue>;
 
 type Timeframe = "hourly" | "weekly" | "monthly";
+type DeviceState = "on" | "off" | "unknown";
 
-function getCreatedAtDate(row: GenericRow) {
-  const raw = String(row.createdAt ?? "").trim();
-  if (!raw) return null;
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+type StateSnapshot = {
+  state: DeviceState;
+  lastTelemetryAt: Date | null;
+  switchLabel: string;
+  topic: string;
+};
 
-function readCatalogVendor(value: PrimitiveValue | undefined): string {
-  if (typeof value !== "string" || !value.trim()) return "";
+function parseJsonRecord(value: PrimitiveValue | undefined) {
+  if (typeof value !== "string" || !value.trim()) return {} as Record<string, unknown>;
   try {
-    const parsed = JSON.parse(value) as {
-      catalog?: { vendorName?: string; vendor?: string };
-    };
-    return String(parsed?.catalog?.vendorName ?? parsed?.catalog?.vendor ?? "").trim();
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
-    return "";
+    return {} as Record<string, unknown>;
   }
 }
 
-function formatMonthCount(rows: GenericRow[]) {
-  const now = new Date();
-  return rows.filter((row) => {
-    const parsed = getCreatedAtDate(row);
-    return parsed &&
-      parsed.getMonth() === now.getMonth() &&
-      parsed.getFullYear() === now.getFullYear();
-  }).length;
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
-function buildAnalyticsSeries(rows: GenericRow[], timeframe: Timeframe) {
+function normalizeState(value: unknown): DeviceState {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "on") return "on";
+  if (normalized === "off") return "off";
+  return "unknown";
+}
+
+function getDeviceSnapshot(row: GenericRow): StateSnapshot {
+  const metadata = parseJsonRecord(row.metadata);
+  const runtime = metadata.runtime && typeof metadata.runtime === "object" && !Array.isArray(metadata.runtime)
+    ? (metadata.runtime as Record<string, unknown>)
+    : {};
+  const lastTelemetry =
+    runtime.lastTelemetry && typeof runtime.lastTelemetry === "object" && !Array.isArray(runtime.lastTelemetry)
+      ? (runtime.lastTelemetry as Record<string, unknown>)
+      : {};
+  const lastProtocolState =
+    runtime.lastProtocolState && typeof runtime.lastProtocolState === "object" && !Array.isArray(runtime.lastProtocolState)
+      ? (runtime.lastProtocolState as Record<string, unknown>)
+      : {};
+  const lastTelemetryAtRaw = readString(runtime.lastTelemetryAt);
+  const lastTelemetryAt = lastTelemetryAtRaw ? new Date(lastTelemetryAtRaw) : null;
+  const switchNo = readString(lastTelemetry.switch_no) || readString(lastTelemetry.switchNo);
+  const channel = readString(lastTelemetry.channel);
+  const switchParts = [channel ? `CH ${channel}` : "", switchNo ? `S${String(switchNo).replace(/^S/i, "")}` : ""].filter(Boolean);
+
+  return {
+    state: normalizeState(lastTelemetry.status ?? lastProtocolState.status),
+    lastTelemetryAt: lastTelemetryAt && !Number.isNaN(lastTelemetryAt.getTime()) ? lastTelemetryAt : null,
+    switchLabel: switchParts.join(" • ") || "General state",
+    topic: readString(runtime.lastTelemetryTopic),
+  };
+}
+
+function formatRelative(value: Date | null) {
+  if (!value) return "No live update";
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - value.getTime()) / 60000));
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hr ago`;
+  return `${Math.floor(diffHours / 24)} day ago`;
+}
+
+function isWithinDays(date: Date | null, days: number) {
+  if (!date) return false;
+  return Date.now() - date.getTime() <= days * 24 * 60 * 60 * 1000;
+}
+
+function buildStateAnalyticsSeries(rows: GenericRow[], timeframe: Timeframe, target: DeviceState) {
   const now = new Date();
   const formatters: Record<Timeframe, (date: Date) => string> = {
     hourly: (date) => `${String(date.getHours()).padStart(2, "0")}:00`,
@@ -80,10 +124,10 @@ function buildAnalyticsSeries(rows: GenericRow[], timeframe: Timeframe) {
   slots.forEach((slot) => bucketMap.set(formatters[timeframe](slot), 0));
 
   rows.forEach((row) => {
-    const parsed = getCreatedAtDate(row);
-    if (!parsed) return;
+    const snapshot = getDeviceSnapshot(row);
+    if (snapshot.state !== target || !snapshot.lastTelemetryAt) return;
 
-    const key = formatters[timeframe](parsed);
+    const key = formatters[timeframe](snapshot.lastTelemetryAt);
     if (!bucketMap.has(key)) return;
     bucketMap.set(key, (bucketMap.get(key) ?? 0) + 1);
   });
@@ -125,38 +169,62 @@ function MetricCard({
   );
 }
 
-function VendorList({ data }: { data: Array<[string, number]> }) {
-  const total = data.reduce((sum, [, count]) => sum + count, 0) || 1;
-
+function StateFeed({
+  items,
+}: {
+  items: Array<{
+    id: string | number;
+    name: string;
+    state: DeviceState;
+    switchLabel: string;
+    updatedAt: Date | null;
+  }>;
+}) {
   return (
     <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[12px] font-medium text-[#161616]">Vendor distribution</p>
-          <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">Current mapped device ownership</p>
+          <p className="text-[12px] font-medium text-[#161616]">Recent state updates</p>
+          <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">Latest live device state changes from telemetry</p>
         </div>
         <span className="rounded-full bg-[#eef9ef] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#155d27]">
-          Fleet
+          Live feed
         </span>
       </div>
 
       <div className="mt-4 space-y-3">
-        {data.length === 0 ? (
+        {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--iotiq-border)] px-4 py-8 text-center text-[12px] text-[var(--iotiq-muted)]">
-            No vendor-linked devices yet.
+            No telemetry-driven state updates yet.
           </div>
         ) : (
-          data.map(([label, count]) => (
-            <div key={label} className="rounded-2xl bg-[#fafaf5] px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-medium text-[#161616]">{label}</p>
-                <p className="text-[14px] font-medium text-[#161616]">{count}</p>
+          items.map((item) => (
+            <div key={item.id} className="rounded-2xl bg-[#fafaf5] px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-[#161616]">{item.name}</p>
+                  <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">{item.switchLabel}</p>
+                </div>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${
+                    item.state === "on"
+                      ? "bg-[#eef9ef] text-[#155d27]"
+                      : item.state === "off"
+                        ? "bg-[#fff8e7] text-[#8a6511]"
+                        : "bg-[#f3f4ef] text-[#6f7468]"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      item.state === "on" ? "bg-[#7caf63]" : item.state === "off" ? "bg-[#d9b14a]" : "bg-[#b8beb2]"
+                    }`}
+                  />
+                  {item.state}
+                </span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ebe6d6]">
-                <div
-                  className="h-full rounded-full bg-[#d9b14a]"
-                  style={{ width: `${Math.max(8, Math.round((count / total) * 100))}%` }}
-                />
+              <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[var(--iotiq-muted)]">
+                <span>{formatRelative(item.updatedAt)}</span>
+                <span>{item.updatedAt ? item.updatedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "-"}</span>
               </div>
             </div>
           ))
@@ -233,50 +301,52 @@ export default function DashboardPage() {
   const loading = devicesLoading || vendorsLoading || appsLoading;
 
   const stats = useMemo(() => {
-    const activeDevices = devices.filter(
-      (row) => String(row.status ?? "").trim().toLowerCase() === "active"
-    ).length;
+    const snapshots = devices.map((row) => ({ row, snapshot: getDeviceSnapshot(row) }));
+    const currentlyOn = snapshots.filter(({ snapshot }) => snapshot.state === "on").length;
+    const currentlyOff = snapshots.filter(({ snapshot }) => snapshot.state === "off").length;
+    const recentUpdates = snapshots.filter(({ snapshot }) => isWithinDays(snapshot.lastTelemetryAt, 1)).length;
+    const staleDevices = snapshots.filter(({ snapshot }) => !isWithinDays(snapshot.lastTelemetryAt, 1)).length;
     const mqttDevices = devices.filter(
       (row) => String(row.connectionType ?? "").trim().toUpperCase() === "MQTT"
     ).length;
-    const elevateDevices = devices.filter((row) => {
-      const catalogVendor = readCatalogVendor(row.metadata);
-      return (
-        catalogVendor.toUpperCase() === "ELEVATE" ||
-        String(row.name ?? "").toUpperCase().includes("IOTIQ")
-      );
-    }).length;
-    const activeApps = apps.filter(
-      (row) => String(row.status ?? "active").trim().toLowerCase() === "active"
-    ).length;
-    const deviceByVendor = new Map<string, number>();
-
-    devices.forEach((row) => {
-      const vendor =
-        readCatalogVendor(row.metadata) ||
-        String(row.vendorName ?? row.vendor ?? "").trim() ||
-        "Unmapped";
-      deviceByVendor.set(vendor, (deviceByVendor.get(vendor) ?? 0) + 1);
-    });
 
     return {
       totalDevices: devices.length,
-      activeDevices,
+      currentlyOn,
+      currentlyOff,
+      recentUpdates,
+      staleDevices,
       mqttDevices,
-      elevateDevices,
-      activeApps,
+      activeApps: apps.filter((row) => String(row.status ?? "active").trim().toLowerCase() === "active").length,
       vendorCount: vendors.length,
-      newDevicesThisMonth: formatMonthCount(devices),
-      topVendors: Array.from(deviceByVendor.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5),
     };
   }, [apps, devices, vendors]);
 
   const analytics = useMemo(
     () => ({
-      devices: buildAnalyticsSeries(devices, timeframe),
-      applications: buildAnalyticsSeries(apps, timeframe),
+      on: buildStateAnalyticsSeries(devices, timeframe, "on"),
+      off: buildStateAnalyticsSeries(devices, timeframe, "off"),
     }),
-    [apps, devices, timeframe]
+    [devices, timeframe]
+  );
+
+  const recentStateUpdates = useMemo(
+    () =>
+      devices
+        .map((row) => {
+          const snapshot = getDeviceSnapshot(row);
+          return {
+            id: row.id,
+            name: String(row.name ?? row.serialNumber ?? row.id),
+            state: snapshot.state,
+            switchLabel: snapshot.switchLabel,
+            updatedAt: snapshot.lastTelemetryAt,
+          };
+        })
+        .filter((item) => item.updatedAt || item.state !== "unknown")
+        .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
+        .slice(0, 6),
+    [devices]
   );
 
   return (
@@ -289,7 +359,7 @@ export default function DashboardPage() {
               Live operations snapshot
             </h2>
             <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[var(--iotiq-muted)]">
-              API-backed counts from devices, vendors, and application-console records. No placeholder copy, only current operational state.
+              Live ON/OFF state analytics from device telemetry, last sync activity, and operational control updates.
             </p>
           </div>
 
@@ -314,28 +384,28 @@ export default function DashboardPage() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          icon={<HardDrive size={18} />}
-          label="Devices"
-          value={String(stats.totalDevices)}
-          helper={`${stats.newDevicesThisMonth} added this month`}
+          icon={<Power size={18} />}
+          label="Currently On"
+          value={String(stats.currentlyOn)}
+          helper={`${stats.mqttDevices} MQTT devices reporting live state`}
         />
         <MetricCard
           icon={<Activity size={18} />}
-          label="Active"
-          value={String(stats.activeDevices)}
-          helper={`${stats.mqttDevices} on MQTT transport`}
+          label="Currently Off"
+          value={String(stats.currentlyOff)}
+          helper="Latest telemetry state marked off"
         />
         <MetricCard
-          icon={<Cpu size={18} />}
-          label="ELEVATE"
-          value={String(stats.elevateDevices)}
-          helper="Detected from device metadata"
+          icon={<TrendingUp size={18} />}
+          label="Updates 24h"
+          value={String(stats.recentUpdates)}
+          helper="Devices with telemetry in the last day"
         />
         <MetricCard
-          icon={<AppWindow size={18} />}
-          label="Applications"
-          value={String(stats.activeApps)}
-          helper={`${stats.vendorCount} vendors mapped`}
+          icon={<Clock3 size={18} />}
+          label="Stale Devices"
+          value={String(stats.staleDevices)}
+          helper="No live telemetry in the last 24 hours"
         />
       </div>
 
@@ -343,9 +413,9 @@ export default function DashboardPage() {
         <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 xl:col-span-2">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[12px] font-medium text-[#161616]">Registration analytics</p>
+              <p className="text-[12px] font-medium text-[#161616]">State analytics</p>
               <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">
-                Compare device and application activity across hourly, weekly, and monthly ranges.
+                Compare live ON and OFF state updates across hourly, weekly, and monthly telemetry windows.
               </p>
             </div>
             <div className="inline-flex rounded-full border border-[var(--iotiq-border)] bg-[#fafaf5] p-1">
@@ -368,18 +438,18 @@ export default function DashboardPage() {
 
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
             <AnalyticsChart
-              label="Device registrations"
-              helper="New inventory records over the selected range"
+              label="ON state activity"
+              helper="Devices whose latest telemetry reported ON in each time bucket"
               tone="green"
-              icon={<HardDrive size={12} />}
-              data={analytics.devices}
+              icon={<Power size={12} />}
+              data={analytics.on}
             />
             <AnalyticsChart
-              label="Application activity"
-              helper="New trusted applications over the selected range"
+              label="OFF state activity"
+              helper="Devices whose latest telemetry reported OFF in each time bucket"
               tone="gold"
-              icon={<TrendingUp size={12} />}
-              data={analytics.applications}
+              icon={<Activity size={12} />}
+              data={analytics.off}
             />
           </div>
         </article>
@@ -439,7 +509,7 @@ export default function DashboardPage() {
           </div>
         </article>
 
-        <VendorList data={stats.topVendors} />
+        <StateFeed items={recentStateUpdates} />
       </div>
     </section>
   );

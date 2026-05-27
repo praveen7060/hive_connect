@@ -34,12 +34,31 @@ export const createEnrollmentQrSchema = z.object({
   deepLinkBase: z.string().min(1).optional(),
 });
 
+export const createAppLinkQrSchema = z.object({
+  expiresInMinutes: z.number().int().min(1).max(60 * 24 * 30).optional(),
+  deepLinkBase: z.string().min(1).optional(),
+  clientId: z.string().min(1).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
 export const claimEnrollmentQrSchema = z.object({
   appId: z.string().min(1),
   appKey: z.string().min(1),
   qrToken: z.string().min(1),
   installationId: z.string().min(1).optional(),
   alias: z.string().min(1).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const claimAppLinkQrSchema = z.object({
+  qrToken: z.string().min(1),
+  installationId: z.string().min(1),
+  clientId: z.string().min(1).optional(),
+  platform: z.string().min(1).optional(),
+  appVersion: z.string().min(1).optional(),
+  deviceModel: z.string().min(1).optional(),
+  osVersion: z.string().min(1).optional(),
+  pushToken: z.string().min(1).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

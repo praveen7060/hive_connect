@@ -6,7 +6,9 @@ import { iotService } from "../iot-orchestration/iot.service";
 import { uploadEnrollmentQrSvgToS3 } from "./qrAssetStorage.service";
 import type { z } from "zod";
 import {
+  claimAppLinkQrSchema,
   claimEnrollmentQrSchema,
+  createAppLinkQrSchema,
   createConsoleApplicationSchema,
   createEnrollmentQrSchema,
   executeClaimedCommandSchema,
@@ -18,8 +20,11 @@ type UpdateConsoleApplicationInput = z.infer<typeof updateConsoleApplicationSche
 type CreateEnrollmentQrInput = z.infer<typeof createEnrollmentQrSchema>;
 type ClaimEnrollmentQrInput = z.infer<typeof claimEnrollmentQrSchema>;
 type ExecuteClaimedCommandInput = z.infer<typeof executeClaimedCommandSchema>;
+type CreateAppLinkQrInput = z.infer<typeof createAppLinkQrSchema>;
+type ClaimAppLinkQrInput = z.infer<typeof claimAppLinkQrSchema>;
 
 const DEFAULT_QR_EXPIRY_MINUTES = 15;
+const APP_LINK_QR_TYPE = "app_account_link";
 
 function maskKey(value: string) {
   if (value.length <= 8) return value;
@@ -32,6 +37,10 @@ function generateAppKey() {
 
 function generateQrToken() {
   return `qr_${randomBytes(24).toString("hex")}`;
+}
+
+function generateAppLinkToken() {
+  return `link_${randomBytes(24).toString("hex")}`;
 }
 
 function parseJsonObject(value: string | null | undefined): Record<string, unknown> {
@@ -111,6 +120,46 @@ function serializeClaimMetadata(
   );
 }
 
+function normalizeAppLinkCollections(metadata: Record<string, unknown>) {
+  const appLinkSessions =
+    metadata.appLinkSessions && typeof metadata.appLinkSessions === "object" && !Array.isArray(metadata.appLinkSessions)
+      ? (metadata.appLinkSessions as Record<string, unknown>)
+      : {};
+
+  const pending = Array.isArray(appLinkSessions.pending)
+    ? appLinkSessions.pending.filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    : [];
+  const linkedAccounts = Array.isArray(appLinkSessions.linkedAccounts)
+    ? appLinkSessions.linkedAccounts.filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    : [];
+
+  return {
+    appLinkSessions,
+    pending: pending as Array<Record<string, unknown>>,
+    linkedAccounts: linkedAccounts as Array<Record<string, unknown>>,
+  };
+}
+
+function buildAppLinkMetadata(
+  baseMetadata: Record<string, unknown>,
+  pending: Array<Record<string, unknown>>,
+  linkedAccounts: Array<Record<string, unknown>>,
+  latestLinkedAccount?: Record<string, unknown>
+) {
+  return JSON.stringify(
+    {
+      ...baseMetadata,
+      ...(latestLinkedAccount ? { linkedAccount: latestLinkedAccount } : {}),
+      appLinkSessions: {
+        pending: pending.slice(-10),
+        linkedAccounts: linkedAccounts.slice(-10),
+      },
+    },
+    null,
+    2
+  );
+}
+
 export const applicationConsoleService = {
   listApps() {
     return prisma.consoleApplication.findMany({
@@ -170,6 +219,76 @@ export const applicationConsoleService = {
   async deleteApp(id: string) {
     await getConsoleApplication(id);
     await prisma.consoleApplication.delete({ where: { id } });
+  },
+
+  async createAppLinkQr(appId: string, input: CreateAppLinkQrInput) {
+    const app = await getConsoleApplication(appId);
+    if (app.status !== "active") {
+      throw new ApiError(403, "Application is not active");
+    }
+
+    const token = generateAppLinkToken();
+    const issuedAt = new Date();
+    const expiresAt = new Date(
+      Date.now() + (input.expiresInMinutes ?? DEFAULT_QR_EXPIRY_MINUTES) * 60_000
+    );
+    const qrPayloadObject = {
+      type: APP_LINK_QR_TYPE,
+      token,
+      appId: app.id,
+      applicationCode: app.applicationCode,
+      clientId: input.clientId ?? null,
+      expiresAt: expiresAt.toISOString(),
+    };
+    const qrPayload = JSON.stringify(qrPayloadObject);
+    const deepLink = `${input.deepLinkBase ?? "hiveconnect://app-link"}?token=${encodeURIComponent(token)}`;
+    const qrSvg = await buildQrSvg(deepLink);
+
+    const metadata = parseJsonObject(app.metadata);
+    const { pending, linkedAccounts } = normalizeAppLinkCollections(metadata);
+    const nextPending = [
+      ...pending.filter((entry) => String(entry.token ?? "") !== token),
+      {
+        token,
+        qrType: APP_LINK_QR_TYPE,
+        status: "pending",
+        clientId: input.clientId ?? null,
+        deepLink,
+        issuedAt: issuedAt.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        metadata: input.metadata ?? null,
+      },
+    ];
+
+    const updatedApp = await prisma.consoleApplication.update({
+      where: { id: app.id },
+      data: {
+        metadata: buildAppLinkMetadata(metadata, nextPending, linkedAccounts),
+      },
+    });
+
+    return {
+      success: true,
+      app: {
+        id: updatedApp.id,
+        name: updatedApp.name,
+        applicationCode: updatedApp.applicationCode,
+      },
+      link: {
+        token,
+        deepLink,
+        expiresAt: expiresAt.toISOString(),
+        status: "pending",
+        clientId: input.clientId ?? null,
+      },
+      qr: {
+        token,
+        payload: qrPayloadObject,
+        rawPayload: qrPayload,
+        deepLink,
+        svg: qrSvg,
+      },
+    };
   },
 
   async createEnrollmentQr(deviceId: string, input: CreateEnrollmentQrInput) {
@@ -315,6 +434,117 @@ export const applicationConsoleService = {
       },
       device: enrollment.device,
       claim,
+    };
+  },
+
+  async claimAppLinkQr(input: ClaimAppLinkQrInput) {
+    const apps = await prisma.consoleApplication.findMany({
+      where: { status: "active" },
+      select: {
+        id: true,
+        name: true,
+        applicationCode: true,
+        appKey: true,
+        clientId: true,
+        metadata: true,
+      },
+    });
+
+    const matched = apps
+      .map((app) => {
+        const metadata = parseJsonObject(app.metadata);
+        const { pending, linkedAccounts } = normalizeAppLinkCollections(metadata);
+        const session = pending.find((entry) => String(entry.token ?? "") === input.qrToken);
+        return session ? { app, metadata, pending, linkedAccounts, session } : null;
+      })
+      .find(Boolean);
+
+    if (!matched) {
+      throw new ApiError(404, "App link QR not found");
+    }
+
+    const { app, metadata, pending, linkedAccounts, session } = matched;
+    const status = String(session.status ?? "pending").trim().toLowerCase();
+    if (status !== "pending") {
+      throw new ApiError(409, "App link QR is no longer available");
+    }
+
+    const expiresAt = new Date(String(session.expiresAt ?? ""));
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+      const nextPending = pending.map((entry) =>
+        String(entry.token ?? "") === input.qrToken ? { ...entry, status: "expired" } : entry
+      );
+      await prisma.consoleApplication.update({
+        where: { id: app.id },
+        data: {
+          metadata: buildAppLinkMetadata(metadata, nextPending, linkedAccounts),
+        },
+      });
+      throw new ApiError(410, "App link QR has expired");
+    }
+
+    const linkedAt = new Date().toISOString();
+    const linkedAccount = {
+      linked: true,
+      status: "linked",
+      token: input.qrToken,
+      installationId: input.installationId,
+      clientId: input.clientId ?? String(session.clientId ?? app.clientId ?? ""),
+      platform: input.platform ?? null,
+      appVersion: input.appVersion ?? null,
+      deviceModel: input.deviceModel ?? null,
+      osVersion: input.osVersion ?? null,
+      pushToken: input.pushToken ?? null,
+      linkedAt,
+      metadata: input.metadata ?? null,
+    };
+
+    const nextPending = pending.map((entry) =>
+      String(entry.token ?? "") === input.qrToken
+        ? {
+            ...entry,
+            status: "linked",
+            linkedAt,
+            installationId: input.installationId,
+            clientId: input.clientId ?? entry.clientId ?? null,
+          }
+        : entry
+    );
+    const nextLinkedAccounts = [
+      ...linkedAccounts.filter(
+        (entry) =>
+          String(entry.installationId ?? "") !== input.installationId &&
+          String(entry.token ?? "") !== input.qrToken
+      ),
+      linkedAccount,
+    ];
+
+    const updatedApp = await prisma.consoleApplication.update({
+      where: { id: app.id },
+      data: {
+        clientId: input.clientId ?? app.clientId ?? undefined,
+        metadata: buildAppLinkMetadata(metadata, nextPending, nextLinkedAccounts, linkedAccount),
+      },
+    });
+
+    return {
+      success: true,
+      app: {
+        id: updatedApp.id,
+        name: updatedApp.name,
+        applicationCode: updatedApp.applicationCode,
+        appKeyMasked: maskKey(app.appKey),
+      },
+      link: {
+        linked: true,
+        status: "linked",
+        token: input.qrToken,
+        installationId: input.installationId,
+        clientId: input.clientId ?? String(session.clientId ?? app.clientId ?? ""),
+        platform: input.platform ?? null,
+        appVersion: input.appVersion ?? null,
+        linkedAt,
+      },
     };
   },
 

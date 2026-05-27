@@ -129,8 +129,44 @@ function findMissingParameters(
   return collectParameterKeys(action.payloadTemplate).filter((key) => !parameters[key]?.trim());
 }
 
-function hasUnresolvedParameterTokens(value: string) {
-  return /\{\{params\.[a-zA-Z0-9_]+\}\}/.test(value);
+function resolveTemplateValue(
+  value: unknown,
+  context: Record<string, string>
+): unknown {
+  if (typeof value === "string") {
+    return value.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, token: string) => {
+      const normalizedToken = token.trim();
+      return context[normalizedToken] ?? `{{${normalizedToken}}}`;
+    });
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => resolveTemplateValue(entry, context));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, resolveTemplateValue(entry, context)])
+    );
+  }
+
+  return value;
+}
+
+function hasUnresolvedTemplateTokens(value: unknown) {
+  if (typeof value === "string") {
+    return /\{\{[^}]+\}\}/.test(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(hasUnresolvedTemplateTokens);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(hasUnresolvedTemplateTokens);
+  }
+
+  return false;
 }
 
 function createInitialDraft(device: ClaimedDeviceRecord, action: CommandDefinition): ActionDraft {
@@ -320,13 +356,22 @@ export default function DeviceControlPage() {
         return;
       }
 
-      if (hasUnresolvedParameterTokens(draft.payloadJson)) {
-        setSubmitError("Payload JSON still contains unresolved {{params.*}} placeholders.");
+      setSending(true);
+      const payloadJson = resolveTemplateValue(
+        draft.payloadJson.trim() ? JSON.parse(draft.payloadJson) : {},
+        {
+          connectAdminDeviceId: selectedCatalog?.connectAdminDeviceId ?? "",
+          thingId: selectedCatalog?.thingId ?? "",
+          thingName: selectedCatalog?.thingId ?? "",
+          ...Object.fromEntries(
+            Object.entries(draft.parameters).map(([key, value]) => [`params.${key}`, value.trim()])
+          ),
+        }
+      );
+      if (hasUnresolvedTemplateTokens(payloadJson)) {
+        setSubmitError("Payload still contains unresolved template placeholders.");
         return;
       }
-
-      setSending(true);
-      const payloadJson = draft.payloadJson.trim() ? JSON.parse(draft.payloadJson) : {};
       const cleanParameters = Object.fromEntries(
         Object.entries(draft.parameters).filter(([, value]) => value.trim())
       );
@@ -341,7 +386,7 @@ export default function DeviceControlPage() {
         topic: activeAction.topicTemplate ?? undefined,
         subTopic: activeAction.subTopic ?? undefined,
         parameters: cleanParameters,
-        payload: payloadJson,
+        payload: payloadJson as Record<string, unknown>,
       };
 
       await deviceControlApi.executeClaimedCommand(request);

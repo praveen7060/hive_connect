@@ -221,11 +221,54 @@ function collectParameterKeys(payloadTemplate: Record<string, unknown> | undefin
   return Array.from(keys);
 }
 
-function createCommandDraft(command: CatalogCommandDefinition): CommandDraft {
-  const parameterKeys = collectParameterKeys(command.payloadTemplate);
+const COMMAND_TEMPLATE_NOISE_KEYS = new Set([
+  "executionMode",
+  "adapterKey",
+  "transport",
+  "attributes",
+  "capabilities",
+  "commands",
+  "protocolMetadata",
+  "direction",
+  "authStrategy",
+]);
+
+function parseTemplateObject(value: unknown): Record<string, unknown> {
+  if (isRecord(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return {};
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function resolveCommandPayloadTemplate(
+  command: CatalogCommandDefinition,
+  messageTemplate?: unknown
+) {
+  const commandTemplate = isRecord(command.payloadTemplate) ? command.payloadTemplate : {};
+  const requestTemplate = parseTemplateObject(messageTemplate);
+  const hasNoise = Object.keys(commandTemplate).some((key) => COMMAND_TEMPLATE_NOISE_KEYS.has(key));
+
+  if (hasNoise && Object.keys(requestTemplate).length > 0) {
+    return requestTemplate;
+  }
+
+  if (Object.keys(commandTemplate).length > 0) {
+    return commandTemplate;
+  }
+
+  return requestTemplate;
+}
+
+function createCommandDraft(payloadTemplate: Record<string, unknown>): CommandDraft {
+  const parameterKeys = collectParameterKeys(payloadTemplate);
   return {
     parameters: Object.fromEntries(parameterKeys.map((key) => [key, ""])),
-    payloadJson: JSON.stringify(command.payloadTemplate ?? {}, null, 2),
+    payloadJson: JSON.stringify(payloadTemplate ?? {}, null, 2),
   };
 }
 
@@ -236,14 +279,50 @@ function parsePayloadJson(value: string): Record<string, unknown> {
 }
 
 function findMissingCommandParameters(
-  command: CatalogCommandDefinition,
+  payloadTemplate: Record<string, unknown>,
   parameters: Record<string, string>
 ) {
-  return collectParameterKeys(command.payloadTemplate).filter((key) => !parameters[key]?.trim());
+  return collectParameterKeys(payloadTemplate).filter((key) => !parameters[key]?.trim());
 }
 
-function hasUnresolvedParameterTokens(value: string) {
-  return /\{\{params\.[a-zA-Z0-9_]+\}\}/.test(value);
+function resolveTemplateValue(
+  value: unknown,
+  context: Record<string, string>
+): unknown {
+  if (typeof value === "string") {
+    return value.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, token: string) => {
+      const normalizedToken = token.trim();
+      return context[normalizedToken] ?? `{{${normalizedToken}}}`;
+    });
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => resolveTemplateValue(entry, context));
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, resolveTemplateValue(entry, context)])
+    );
+  }
+
+  return value;
+}
+
+function hasUnresolvedTemplateTokens(value: unknown) {
+  if (typeof value === "string") {
+    return /\{\{[^}]+\}\}/.test(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(hasUnresolvedTemplateTokens);
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).some(hasUnresolvedTemplateTokens);
+  }
+
+  return false;
 }
 
 function ActionButton({
@@ -374,6 +453,16 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
     publicKey: readString(getRecord(iot, "documents").publicKey),
     metadata: readString(getRecord(iot, "documents").metadata),
   };
+  const policyCommands = catalogProfile?.commands ?? [];
+  const commandPayloadTemplates = useMemo(() => {
+    const messages = catalogProfile?.messages ?? [];
+    return Object.fromEntries(
+      policyCommands.map((command) => {
+        const message = messages.find((entry) => entry.id === command.messageId);
+        return [command.key, resolveCommandPayloadTemplate(command, message?.requestPayloadFormat)];
+      })
+    ) as Record<string, Record<string, unknown>>;
+  }, [catalogProfile, policyCommands]);
 
   useEffect(() => {
     let cancelled = false;
@@ -412,7 +501,11 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
           setCatalogProfile(profileResult.value);
           setCommandDrafts(
             Object.fromEntries(
-              (profileResult.value.commands ?? []).map((command) => [command.key, createCommandDraft(command)])
+              (profileResult.value.commands ?? []).map((command) => {
+                const message = (profileResult.value.messages ?? []).find((entry) => entry.id === command.messageId);
+                const payloadTemplate = resolveCommandPayloadTemplate(command, message?.requestPayloadFormat);
+                return [command.key, createCommandDraft(payloadTemplate)];
+              })
             )
           );
           setCatalogError(null);
@@ -454,7 +547,6 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
     readString(onboardingQr.region) ??
     "ap-south-1";
   const secureState = certificateId ? "Secure" : "Provisioning";
-  const policyCommands = catalogProfile?.commands ?? [];
 
   const signalQuality = useMemo(() => {
     const updated = new Date(lastSyncAt);
@@ -642,27 +734,34 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
   };
 
   const executePolicyCommand = async (command: CatalogCommandDefinition) => {
-    const draft = commandDrafts[command.key] ?? createCommandDraft(command);
+    const payloadTemplate = commandPayloadTemplates[command.key] ?? {};
+    const draft = commandDrafts[command.key] ?? createCommandDraft(payloadTemplate);
     setActionFeedback(null);
 
     try {
-      const missingParameters = findMissingCommandParameters(command, draft.parameters);
+      const missingParameters = findMissingCommandParameters(payloadTemplate, draft.parameters);
       if (missingParameters.length > 0) {
         setActionFeedback(`Enter ${missingParameters.join(", ")} before sending ${commandLabel(command)}.`);
         return;
       }
 
-      if (hasUnresolvedParameterTokens(draft.payloadJson)) {
-        setActionFeedback("Payload JSON still contains unresolved {{params.*}} placeholders.");
+      setActionBusy(`policy:${command.key}`);
+      const payload = resolveTemplateValue(parsePayloadJson(draft.payloadJson), {
+        connectAdminDeviceId,
+        thingId,
+        thingName: thingId,
+        ...Object.fromEntries(
+          Object.entries(draft.parameters).map(([key, value]) => [`params.${key}`, value.trim()])
+        ),
+      });
+      if (hasUnresolvedTemplateTokens(payload)) {
+        setActionFeedback("Payload still contains unresolved template placeholders.");
         return;
       }
-
-      setActionBusy(`policy:${command.key}`);
-      const payload = parsePayloadJson(draft.payloadJson);
       await deviceInventoryApi.iot.executeCatalogCommand(deviceId, command.key, {
         messageId: command.messageId,
         parameters: draft.parameters,
-        payload,
+        payload: isRecord(payload) ? payload : {},
         topic: command.topicTemplate ?? undefined,
         subTopic: command.subTopic ?? undefined,
       });
@@ -911,7 +1010,8 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                 {policyCommands.length ? (
                   <div className="grid gap-3">
                     {policyCommands.map((command) => {
-                      const draft = commandDrafts[command.key] ?? createCommandDraft(command);
+                      const payloadTemplate = commandPayloadTemplates[command.key] ?? {};
+                      const draft = commandDrafts[command.key] ?? createCommandDraft(payloadTemplate);
                       const parameterKeys = Object.keys(draft.parameters);
                       const busy = actionBusy === `policy:${command.key}`;
                       const payloadExpanded = Boolean(expandedPayloadTemplates[command.key]);
