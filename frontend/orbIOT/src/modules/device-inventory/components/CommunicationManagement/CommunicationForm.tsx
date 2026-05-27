@@ -25,7 +25,7 @@ export const communicationFormFields: FormFieldConfig[] = [
   { key: "name", label: "Communication Policy Name", type: "text", required: true, placeholder: "Enter policy name" },
   { key: "groupName", label: "Group Name", type: "text", required: true, placeholder: "Enter group name" },
   { key: "itemType", label: "Item Type", type: "select", required: true, options: [] },
-  { key: "protocol", label: "Protocol", type: "select", required: true, options: ["MQTT", "HTTP", "CoAP"] },
+  { key: "protocol", label: "Protocol", type: "select", required: true, options: ["API", "HTTP", "MQTT", "WEBSOCKET", "ZIGBEE", "CoAP"] },
   { key: "version", label: "Version", type: "text", placeholder: "0.01" },
   { key: "messageFormat", label: "Message Format", type: "select", options: ["JSON", "XML", "PROTOBUF"] },
   { key: "centric", label: "Centric", type: "select", options: ["TOPIC", "PAYLOAD"] },
@@ -459,9 +459,11 @@ export default function CommunicationForm({
                   required
                 >
                   <option value="">Select Protocol</option>
-                  <option value="MQTT">MQTT</option>
+                  <option value="API">API</option>
                   <option value="HTTP">HTTP</option>
+                  <option value="MQTT">MQTT</option>
                   <option value="WEBSOCKET">WEBSOCKET</option>
+                  <option value="ZIGBEE">ZIGBEE</option>
                 </select>
               </div>
             )}

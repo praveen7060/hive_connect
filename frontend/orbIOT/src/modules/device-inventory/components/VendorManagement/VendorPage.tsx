@@ -27,6 +27,15 @@ type VendorRow = {
   name: string;
   type: string;
   industry: string;
+  protocol?: string;
+  apiVersion?: string;
+  baseUrl?: string;
+  mqttEndpoint?: string;
+  websocketUrl?: string;
+  zigbeeProfile?: string;
+  uid?: string;
+  notes?: string;
+  status?: string;
   authType: string;
   image?: string;
   description?: string;
@@ -110,12 +119,18 @@ const FILTERS: FilterConfig[] = [
     label: "Auth Type", 
     options: ["OAUTH2", "Credentials", "JWT", "Certificate"] 
   },
+  {
+    key: "protocol",
+    label: "Protocol",
+    options: ["API", "HTTP", "MQTT", "WEBSOCKET", "ZIGBEE"],
+  },
 ];
 
 const COLUMNS: ColumnConfig[] = [
   { key: "name", label: "Name" },
   { key: "type", label: "Type" },
   { key: "industry", label: "Industry" },
+  { key: "protocol", label: "Protocol" },
   { key: "authType", label: "Auth Type" },
   { key: "createdAt", label: "Created" },
   { key: "updatedAt", label: "Updated" },
@@ -123,7 +138,7 @@ const COLUMNS: ColumnConfig[] = [
 
 const INITIAL_ROWS: VendorRow[] = [];
 
-const BADGE_KEYS = new Set(["industry", "authType", "type"]);
+const BADGE_KEYS = new Set(["industry", "authType", "type", "protocol"]);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(val: PrimitiveValue | undefined): string {
@@ -145,6 +160,15 @@ function buildDefaults(): Record<string, PrimitiveValue> {
     description: "",
     type: "",
     industry: "",
+    protocol: "",
+    apiVersion: "",
+    baseUrl: "",
+    mqttEndpoint: "",
+    websocketUrl: "",
+    zigbeeProfile: "",
+    uid: "",
+    notes: "",
+    status: "active",
     image: "",
     authType: "",
     clientId: "",
@@ -190,6 +214,12 @@ const BADGE_COLORS: Record<string, string> = {
   Credentials: "bg-orange-50 text-orange-700 border-orange-200",
   JWT: "bg-purple-50 text-purple-700 border-purple-200",
   Certificate: "bg-green-50 text-green-700 border-green-200",
+
+  API: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  HTTP: "bg-sky-50 text-sky-700 border-sky-200",
+  MQTT: "bg-amber-50 text-amber-700 border-amber-200",
+  WEBSOCKET: "bg-violet-50 text-violet-700 border-violet-200",
+  ZIGBEE: "bg-lime-50 text-lime-700 border-lime-200",
   
   // Vendor Types
   "Third Party": "bg-slate-100 text-slate-600 border-slate-200",
@@ -257,7 +287,7 @@ export default function VendorManagementPage() {
     return rows.filter((row) => {
       const searchPass =
         !q ||
-        ["name", "type", "industry", "authType"].some((k) =>
+        ["name", "type", "industry", "authType", "protocol", "baseUrl", "mqttEndpoint"].some((k) =>
           String(row[k] ?? "").toLowerCase().includes(q)
         );
       const filterPass = FILTERS.every((f) => {
@@ -343,6 +373,15 @@ export default function VendorManagementPage() {
       type: String(formValues.type || ""),
       industry,
       authType: String(formValues.authType || ""),
+      protocol: formValues.protocol ? String(formValues.protocol) : undefined,
+      apiVersion: formValues.apiVersion ? String(formValues.apiVersion) : undefined,
+      baseUrl: formValues.baseUrl ? String(formValues.baseUrl) : undefined,
+      mqttEndpoint: formValues.mqttEndpoint ? String(formValues.mqttEndpoint) : undefined,
+      websocketUrl: formValues.websocketUrl ? String(formValues.websocketUrl) : undefined,
+      zigbeeProfile: formValues.zigbeeProfile ? String(formValues.zigbeeProfile) : undefined,
+      uid: formValues.uid ? String(formValues.uid) : undefined,
+      notes: formValues.notes ? String(formValues.notes) : undefined,
+      status: formValues.status ? String(formValues.status) : undefined,
       image: formValues.image ? String(formValues.image) : "",
       description: String(formValues.description || ""),
       // Include all possible auth fields (they'll be undefined if not used)
@@ -484,9 +523,9 @@ export default function VendorManagementPage() {
           sub="with OAuth 2.0"
         />
         <StatCard
-          label="Certificate Auth"
-          value={String(rows.filter((r) => r.authType === "Certificate").length)}
-          sub="PEM certificates"
+          label="API Vendors"
+          value={String(rows.filter((r) => String(r.protocol ?? "").toUpperCase() === "API").length)}
+          sub="endpoint driven"
         />
       </div>
       {error && (

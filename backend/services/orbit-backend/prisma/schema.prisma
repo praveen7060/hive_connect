@@ -22,6 +22,15 @@ model Vendor {
   description      String?
   type             String?
   industry         String?
+  protocol         String?
+  apiVersion       String?
+  baseUrl          String?
+  mqttEndpoint     String?
+  websocketUrl     String?
+  zigbeeProfile    String?
+  uid              String?
+  notes            String?
+  status           String?
   authType         String?
   clientId         String?
   clientSecret     String?

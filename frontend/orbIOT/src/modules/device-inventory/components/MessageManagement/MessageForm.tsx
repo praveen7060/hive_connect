@@ -36,9 +36,9 @@ const MESSAGE_TYPE_OPTIONS = [
 export const messagingFormFields: FormFieldConfig[] = [
   { key: "itemType", label: "Item Type", type: "select", required: true, options: [] },
   { key: "communicationPolicy", label: "Communication Policy", type: "select", required: true, options: [] },
-  { key: "topic", label: "Topic", type: "text", required: true, placeholder: "e.g. mqtt/device/@{deviceId}/update" },
+  { key: "topic", label: "Topic / Endpoint", type: "text", required: true, placeholder: "e.g. /v1.0/iot-03/devices/{{device_id}}/commands" },
   { key: "messageType", label: "Message Type", type: "select", options: [...MESSAGE_TYPE_OPTIONS] },
-  { key: "commandType", label: "Command Type", type: "select", options: ["PUBLISH", "SUBSCRIBE", "GET", "POST"] },
+  { key: "commandType", label: "Command Type", type: "select", options: ["PUBLISH", "SUBSCRIBE", "GET", "POST", "PUT", "DELETE"] },
   { key: "policyType", label: "Policy Type", type: "select", options: ["EXECUTE", "QUERY", "REGISTER", "BOOT", "SYNC", "OTA"] },
 ];
 
@@ -177,21 +177,24 @@ export default function MessagingForm({
       {/* Remaining fields - Only shown after both required fields are selected */}
       {showRemainingFields && (
         <>
-          {/* Topic */}
+          {/* Topic / Endpoint */}
           <div className="space-y-2 pt-2">
             <label className="flex flex-col gap-1.5">
               <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
-                Topic <span className="text-rose-500">*</span>
+                Topic / Endpoint <span className="text-rose-500">*</span>
               </span>
               <input
                 type="text"
                 value={values.topic || ""}
                 required
                 onChange={(e) => onValueChange("topic", e.target.value)}
-                placeholder="e.g. mqtt/device/@{deviceId}/update"
+                placeholder="e.g. /v1.0/iot-03/devices/{{device_id}}/commands"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 placeholder:text-slate-400"
               />
             </label>
+            <p className="text-[11px] text-slate-500">
+              Use MQTT topics for broker-based vendors and relative endpoints for API or HTTP vendors. The vendor base URL stays on the vendor record.
+            </p>
           </div>
 
           {/* Is Topic Unique */}
@@ -294,6 +297,8 @@ export default function MessagingForm({
                 <option value="SUBSCRIBE">SUBSCRIBE</option>
                 <option value="POST">POST</option>
                 <option value="GET">GET</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
               </select>
             </label>
           </div>
@@ -339,6 +344,10 @@ export default function MessagingForm({
                 placeholder={'{\n  "deviceid": "@{device.foreignId}",\n  "status": "${status}"\n}'}
               />
             </label>
+            <p className="text-[11px] text-slate-500">
+              For API vendors, define the request body exactly as the endpoint expects. Example for Tuya:
+              <span className="ml-1 font-mono">{'{"commands":[{"code":"switch_1","value":true}]}'}</span>
+            </p>
           </div>
 
           <div className="space-y-1">

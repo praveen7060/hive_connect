@@ -123,9 +123,9 @@ export default function Sidebar() {
             <Cpu size={18} />
           </div>
           <div>
-            <p className="text-[14px] font-medium tracking-[0.08em] text-[#161616]">ORBIOT</p>
+            <p className="text-[14px] font-medium tracking-[0.08em] text-[#161616]">HIVE CONNECT</p>
             <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--iotiq-muted)]">
-              Control
+              OWN ONBOARD OPERATE
             </p>
           </div>
         </div>

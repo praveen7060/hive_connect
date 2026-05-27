@@ -645,6 +645,11 @@ export async function importVendorFromPostmanCollection(input: {
     description: collection.info?.description,
     type: "cloud_api_vendor",
     industry: "iot",
+    protocol: "API",
+    status: "active",
+    uid: parameters.get("uid")?.sampleValue,
+    baseUrl,
+    apiVersion: requests.find((request) => /\/v\d+\.\d+/i.test(request.path))?.path.match(/\/(v\d+\.\d+)/i)?.[1],
     authType,
     clientId: parameters.get("client_id")?.sampleValue,
     clientSecret: parameters.get("client_secret")?.sampleValue,
@@ -652,6 +657,7 @@ export async function importVendorFromPostmanCollection(input: {
     tokenUrl,
     apiToken: parameters.get("access_token")?.sampleValue,
     tokenType: parameters.has("access_token") ? "access_token" : undefined,
+    notes: "Imported from Postman collection",
   };
 
   const existingVendor = await prisma.vendor.findFirst({

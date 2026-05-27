@@ -38,9 +38,17 @@ export const vendorFormFields: FormFieldConfig[] = [
       "IOT", "MARKETING", "CONSULTING", "LOGISTICS", "OTHER"
     ],
   },
+  {
+    key: "protocol",
+    label: "Protocol",
+    type: "select",
+    required: true,
+    options: ["API", "HTTP", "MQTT", "WEBSOCKET", "ZIGBEE"],
+  },
 ];
 
 type AuthType = "OAUTH2" | "Credentials" | "JWT" | "Certificate" | "";
+type VendorProtocol = "API" | "HTTP" | "MQTT" | "WEBSOCKET" | "ZIGBEE" | "";
 
 interface VendorFormProps extends ManagementFormProps {
   onSaveAndNext?: () => void;
@@ -61,6 +69,7 @@ export default function VendorForm({
 }: VendorFormProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [authType, setAuthType] = useState<AuthType>((values?.authType as AuthType) ?? "");
+  const protocol = ((values?.protocol as VendorProtocol) ?? "");
   const [imageName, setImageName] = useState<string>("");
   const formContentRef = useRef<HTMLDivElement>(null);
 
@@ -285,6 +294,92 @@ export default function VendorForm({
     }
   };
 
+  const renderProtocolFields = () => {
+    if (protocol === "API" || protocol === "HTTP") {
+      return (
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-slate-700">Base URL</span>
+            <input
+              type="text"
+              value={String(values?.baseUrl ?? "")}
+              onChange={(e) => onValueChange("baseUrl", e.target.value)}
+              placeholder="https://openapi.tuyain.com"
+              className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-slate-700">API Version</span>
+            <input
+              type="text"
+              value={String(values?.apiVersion ?? "")}
+              onChange={(e) => onValueChange("apiVersion", e.target.value)}
+              placeholder="v1.0"
+              className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </label>
+          <label className="flex flex-col gap-2 md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">UID / Account Key</span>
+            <input
+              type="text"
+              value={String(values?.uid ?? "")}
+              onChange={(e) => onValueChange("uid", e.target.value)}
+              placeholder="Tuya user UID"
+              className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </label>
+        </div>
+      );
+    }
+
+    if (protocol === "MQTT") {
+      return (
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-slate-700">MQTT Endpoint</span>
+          <input
+            type="text"
+            value={String(values?.mqttEndpoint ?? "")}
+            onChange={(e) => onValueChange("mqttEndpoint", e.target.value)}
+            placeholder="mqtt.vendor.com"
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </label>
+      );
+    }
+
+    if (protocol === "WEBSOCKET") {
+      return (
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-slate-700">WebSocket URL</span>
+          <input
+            type="text"
+            value={String(values?.websocketUrl ?? "")}
+            onChange={(e) => onValueChange("websocketUrl", e.target.value)}
+            placeholder="wss://stream.vendor.com/devices"
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </label>
+      );
+    }
+
+    if (protocol === "ZIGBEE") {
+      return (
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-slate-700">Zigbee Profile</span>
+          <input
+            type="text"
+            value={String(values?.zigbeeProfile ?? "")}
+            onChange={(e) => onValueChange("zigbeeProfile", e.target.value)}
+            placeholder="HA 1.2 / Zigbee 3.0"
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </label>
+      );
+    }
+
+    return null;
+  };
+
   // Image upload section
   const renderImageUpload = () => (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -420,6 +515,35 @@ export default function VendorForm({
 
           {/* Image Upload Section */}
           {renderImageUpload()}
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="mb-3 text-sm font-medium text-slate-900">Protocol Configuration</h3>
+            <div className="space-y-4">
+              {renderProtocolFields()}
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-slate-700">Status</span>
+                <select
+                  value={String(values?.status ?? "active")}
+                  onChange={(e) => onValueChange("status", e.target.value)}
+                  className="h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="draft">Draft</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-slate-700">Notes</span>
+                <textarea
+                  rows={3}
+                  value={String(values?.notes ?? "")}
+                  onChange={(e) => onValueChange("notes", e.target.value)}
+                  placeholder="Use API/HTTP vendors for endpoint-based messaging policies like Tuya."
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </label>
+            </div>
+          </div>
 
           {/* Advanced Options */}
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">

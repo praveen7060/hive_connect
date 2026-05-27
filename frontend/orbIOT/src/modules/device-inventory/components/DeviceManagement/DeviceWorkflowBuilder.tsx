@@ -83,14 +83,33 @@ type DrawerMode = "select" | "create";
 type DrawerFormState = {
   name: string;
   description: string;
+  synonyms: string;
   variableType: string;
   pinType: string;
+  vendorName: string;
+  parameterName: string;
   topic: string;
+  groupName: string;
+  messageFormat: string;
+  centric: string;
+  iconName: string;
+  communicationMethod: string;
+  commandType: string;
+  policyType: string;
+  requestPayloadFormat: string;
+  responsePayloadFormat: string;
   itemCode: string;
+  metadata: string;
+  itemPollingConfig: string;
+  tags: string;
+  gateway: string;
+  componentCount: string;
+  secureItem: boolean;
   serialNumber: string;
   connectionType: string;
   project: string;
   vendorCode: string;
+  protocol: string;
   clientId: string;
   clientSecret: string;
   uid: string;
@@ -107,6 +126,7 @@ type VendorListItem = {
   name: string;
   vendorCode: string;
   status: string;
+  protocol?: string;
   authType: string;
   description: string;
   clientId?: string;
@@ -137,14 +157,33 @@ function makeEmptyState() {
   return {
     name: "",
     description: "",
+    synonyms: "",
     variableType: "string",
     pinType: "",
+    vendorName: "",
+    parameterName: "",
     topic: "mqtt/device/{{thingName}}/control",
+    groupName: "",
+    messageFormat: "JSON",
+    centric: "TOPIC",
+    iconName: "radio",
+    communicationMethod: "PUBLISH",
+    commandType: "POST",
+    policyType: "EXECUTE",
+    requestPayloadFormat: '{\n  "deviceid": "{{connectAdminDeviceId}}"\n}',
+    responsePayloadFormat: '{\n  "success": true\n}',
     itemCode: "",
+    metadata: "{}",
+    itemPollingConfig: "{}",
+    tags: "",
+    gateway: "",
+    componentCount: "",
+    secureItem: false,
     serialNumber: "",
     connectionType: "MQTT",
     project: "project_a",
     vendorCode: "",
+    protocol: "API",
     clientId: "",
     clientSecret: "",
     uid: "",
@@ -339,6 +378,7 @@ export default function DeviceWorkflowBuilder({
           name,
           vendorCode: readString((row as Record<string, PrimitiveValue>).vendorCode) || deriveVendorCode(name),
           status: readString((row as Record<string, PrimitiveValue>).status) || "active",
+          protocol: readString((row as Record<string, PrimitiveValue>).protocol) || undefined,
           authType: readString(row.authType) || "Configured",
           description: readString(row.description),
           clientId: readString(row.clientId) || undefined,
@@ -363,6 +403,7 @@ export default function DeviceWorkflowBuilder({
         name: trimmed,
         vendorCode: deriveVendorCode(trimmed),
         status: "active",
+        protocol: "API",
         authType: "Configured",
         description: "",
       });
@@ -378,7 +419,7 @@ export default function DeviceWorkflowBuilder({
         id: entry.id,
         label: entry.name,
         meta: entry.vendorCode,
-        detail: entry.authType,
+        detail: [entry.protocol, entry.authType].filter(Boolean).join(" • "),
         status: entry.status,
       }));
     }
@@ -457,22 +498,33 @@ export default function DeviceWorkflowBuilder({
     setDrawerError(null);
     setSearchQuery("");
     setShowClientSecret(false);
-    setFormState({
-      ...makeEmptyState(),
-      name:
+      setFormState({
+        ...makeEmptyState(),
+        name:
         node === "item"
           ? readString(values.itemName)
           : node === "device"
             ? readString(values.name)
             : "",
-      itemCode: node === "item" ? readString(values.itemCode) : "",
-      serialNumber: node === "device" ? readString(values.serialNumber) : "",
-      connectionType: node === "device" ? readString(values.connectionType) || "MQTT" : "MQTT",
-      project: node === "device" ? readString(values.project) || "project_a" : "project_a",
-      vendorCode: node === "vendor" ? deriveVendorCode(readString(values.vendorName) || "Vendor") : "",
-      authType: "OAUTH2",
-      status: "active",
-    });
+        itemCode: node === "item" ? readString(values.itemCode) : "",
+        metadata: node === "item" ? readString(values.metadata) || "{}" : "{}",
+        itemPollingConfig: node === "item" ? readString(values.itemPollingConfig) || "{}" : "{}",
+        tags: node === "item" ? readString(values.tags) : "",
+        gateway: node === "item" ? readString(values.gateway) : "",
+        componentCount: node === "item" ? readString(values.componentCount) : "",
+        secureItem: node === "item" ? String(values.secureItem) === "true" : false,
+        serialNumber: node === "device" ? readString(values.serialNumber) : "",
+        connectionType: node === "device" ? readString(values.connectionType) || "MQTT" : "MQTT",
+        project: node === "device" ? readString(values.project) || "project_a" : "project_a",
+        groupName: readString(values.vendorName) || "",
+        vendorName: readString(values.vendorName) || "",
+        parameterName: readString(values.parameterName) || "",
+        synonyms: node === "itemType" ? readString(values.synonyms) : "",
+        vendorCode: node === "vendor" ? deriveVendorCode(readString(values.vendorName) || "Vendor") : "",
+        protocol: "API",
+        authType: "OAUTH2",
+        status: "active",
+      });
   };
 
   const closeDrawer = () => {
@@ -542,11 +594,12 @@ export default function DeviceWorkflowBuilder({
         await onCreateVendor({
           name,
           description: formState.description.trim() || undefined,
+          protocol: formState.protocol.trim() || undefined,
+          baseUrl: formState.apiBaseUrl.trim() || undefined,
           authType: formState.authType.trim() || undefined,
           clientId: formState.clientId.trim() || undefined,
           clientSecret: formState.clientSecret.trim() || undefined,
           tokenUrl: formState.tokenUrl.trim() || undefined,
-          authorizationUrl: formState.apiBaseUrl.trim() || undefined,
           vendorCode: formState.vendorCode.trim() || undefined,
           uid: formState.uid.trim() || undefined,
           mqttEndpoint: formState.mqttEndpoint.trim() || undefined,
@@ -570,7 +623,8 @@ export default function DeviceWorkflowBuilder({
         await onCreateItemType({
           name,
           description: formState.description.trim() || undefined,
-          vendorName: readString(values.vendorName) || undefined,
+          synonyms: formState.synonyms.trim() || undefined,
+          vendorName: formState.vendorName.trim() || readString(values.vendorName) || undefined,
         });
         onValueChange("itemTypeName", name);
       }
@@ -578,12 +632,15 @@ export default function DeviceWorkflowBuilder({
       if (activeNode === "communication") {
         await onCreateCommunication({
           name,
-          groupName: readString(values.vendorName) || "default",
+          groupName: formState.groupName.trim() || readString(values.vendorName) || "default",
           itemType: readString(values.itemTypeName) || "generic",
-          protocol: "MQTT",
-          messageFormat: "JSON",
-          centric: "TOPIC",
-          icon: "radio",
+          protocol: formState.protocol.trim() || "MQTT",
+          messageFormat: formState.messageFormat.trim() || "JSON",
+          centric: formState.centric.trim() || "TOPIC",
+          communicationMethod: formState.communicationMethod.trim() || undefined,
+          icon: formState.iconName.trim() || "radio",
+          messageStructure: formState.requestPayloadFormat.trim() || undefined,
+          confirmationMessageStructure: formState.responsePayloadFormat.trim() || undefined,
         });
         onValueChange("communicationPolicy", name);
       }
@@ -599,9 +656,15 @@ export default function DeviceWorkflowBuilder({
           itemType,
           communicationPolicy,
           topic: formState.topic.trim() || "mqtt/device/{{thingName}}/control",
-          messageType: "UPDATE",
-          policyType: "EXECUTE",
-          communicationMethod: "PUBLISH",
+          messageType: formState.messageFormat.trim() || "UPDATE",
+          commandType: formState.commandType.trim() || "POST",
+          policyType: formState.policyType.trim() || "EXECUTE",
+          communicationMethod: formState.communicationMethod.trim() || "PUBLISH",
+          requestPayloadFormat: formState.requestPayloadFormat.trim() || undefined,
+          responsePayloadFormat: formState.responsePayloadFormat.trim() || undefined,
+          payloadFormat: formState.requestPayloadFormat.trim() || undefined,
+          confirmationPayloadFormat: formState.responsePayloadFormat.trim() || undefined,
+          notes: formState.description.trim() || undefined,
         });
         onValueChange("messageName", name);
       }
@@ -614,7 +677,21 @@ export default function DeviceWorkflowBuilder({
           throw new Error("Select vendor, item type, and communication policy before creating an item.");
         }
         const itemCode = formState.itemCode.trim() || name.replace(/\s+/g, "_").toUpperCase();
-        await onCreateItem({ name, itemCode, vendor, itemType, communicationPolicy });
+        await onCreateItem({
+          name,
+          itemCode,
+          vendor,
+          itemType,
+          communicationPolicy,
+          description: formState.description.trim() || undefined,
+          metadata: formState.metadata.trim() || undefined,
+          itemPollingConfig: formState.itemPollingConfig.trim() || undefined,
+          gateway: formState.gateway.trim() || undefined,
+          icon: formState.iconName.trim() || undefined,
+          tags: formState.tags.trim() || undefined,
+          componentCount: formState.componentCount.trim() ? Number(formState.componentCount) : undefined,
+          secureItem: formState.secureItem,
+        });
         onValueChange("itemName", name);
         onValueChange("itemCode", itemCode);
       }
@@ -657,6 +734,22 @@ export default function DeviceWorkflowBuilder({
             className={inputClass()}
             placeholder="ELVT01"
           />
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Protocol" required helper="Tuya-style cloud integrations should usually use API.">
+          <select
+            value={formState.protocol}
+            onChange={(event) => setFormState((current) => ({ ...current, protocol: event.target.value }))}
+            className={inputClass()}
+          >
+            <option value="API">API</option>
+            <option value="HTTP">HTTP</option>
+            <option value="MQTT">MQTT</option>
+            <option value="WEBSOCKET">WEBSOCKET</option>
+            <option value="ZIGBEE">ZIGBEE</option>
+          </select>
         </Field>
       </div>
 
@@ -866,30 +959,296 @@ export default function DeviceWorkflowBuilder({
           </div>
         ) : null}
 
+        {activeNode === "itemType" ? (
+          <>
+            <Field label="Synonyms">
+              <input
+                value={formState.synonyms}
+                onChange={(event) => setFormState((current) => ({ ...current, synonyms: event.target.value }))}
+                className={inputClass()}
+                placeholder="alias1, alias2"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Vendor name">
+                <input
+                  value={formState.vendorName}
+                  onChange={(event) => setFormState((current) => ({ ...current, vendorName: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="Tuya"
+                />
+              </Field>
+              <Field label="Parameter name">
+                <input
+                  value={formState.parameterName}
+                  onChange={(event) => setFormState((current) => ({ ...current, parameterName: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="switch_1"
+                />
+              </Field>
+            </div>
+          </>
+        ) : null}
+
+        {activeNode === "communication" ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Group name" required>
+                <input
+                  value={formState.groupName}
+                  onChange={(event) => setFormState((current) => ({ ...current, groupName: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="Tuya"
+                />
+              </Field>
+              <Field label="Protocol" required>
+                <select
+                  value={formState.protocol}
+                  onChange={(event) => setFormState((current) => ({ ...current, protocol: event.target.value }))}
+                  className={inputClass()}
+                >
+                  <option value="API">API</option>
+                  <option value="HTTP">HTTP</option>
+                  <option value="MQTT">MQTT</option>
+                  <option value="WEBSOCKET">WEBSOCKET</option>
+                  <option value="ZIGBEE">ZIGBEE</option>
+                </select>
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Message format">
+                <select
+                  value={formState.messageFormat}
+                  onChange={(event) => setFormState((current) => ({ ...current, messageFormat: event.target.value }))}
+                  className={inputClass()}
+                >
+                  <option value="JSON">JSON</option>
+                  <option value="ARRAY">ARRAY</option>
+                  <option value="XML">XML</option>
+                </select>
+              </Field>
+              <Field label="Centric">
+                <select
+                  value={formState.centric}
+                  onChange={(event) => setFormState((current) => ({ ...current, centric: event.target.value }))}
+                  className={inputClass()}
+                >
+                  <option value="TOPIC">TOPIC</option>
+                  <option value="PAYLOAD">PAYLOAD</option>
+                  <option value="HYBRID">HYBRID</option>
+                </select>
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Communication method">
+                <select
+                  value={formState.communicationMethod}
+                  onChange={(event) => setFormState((current) => ({ ...current, communicationMethod: event.target.value }))}
+                  className={inputClass()}
+                >
+                  <option value="PUBLISH">PUBLISH</option>
+                  <option value="SUBSCRIBE">SUBSCRIBE</option>
+                  <option value="HTTP">HTTP</option>
+                  <option value="REST">REST</option>
+                </select>
+              </Field>
+              <Field label="Icon">
+                <input
+                  value={formState.iconName}
+                  onChange={(event) => setFormState((current) => ({ ...current, iconName: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="radio"
+                />
+              </Field>
+            </div>
+            <Field label="Message structure / request template">
+              <textarea
+                value={formState.requestPayloadFormat}
+                onChange={(event) => setFormState((current) => ({ ...current, requestPayloadFormat: event.target.value }))}
+                className={inputClass(true)}
+                rows={5}
+                placeholder='{\n  "baseUrl": "https://openapi.tuyain.com"\n}'
+              />
+            </Field>
+            <Field label="Confirmation structure / response template">
+              <textarea
+                value={formState.responsePayloadFormat}
+                onChange={(event) => setFormState((current) => ({ ...current, responsePayloadFormat: event.target.value }))}
+                className={inputClass(true)}
+                rows={4}
+                placeholder='{\n  "success": true\n}'
+              />
+            </Field>
+          </>
+        ) : null}
+
         {activeNode === "message" ? (
-          <Field label="Topic">
-            <input
-              value={formState.topic}
-              onChange={(event) => setFormState((current) => ({ ...current, topic: event.target.value }))}
-              className={inputClass()}
-              placeholder="mqtt/device/{{thingName}}/control"
-            />
-          </Field>
+          <>
+            <Field label="Topic / endpoint" required>
+              <input
+                value={formState.topic}
+                onChange={(event) => setFormState((current) => ({ ...current, topic: event.target.value }))}
+                className={inputClass()}
+                placeholder="/v1.0/iot-03/devices/{{device_id}}/commands"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Command type">
+                <select
+                  value={formState.commandType}
+                  onChange={(event) => setFormState((current) => ({ ...current, commandType: event.target.value }))}
+                  className={inputClass()}
+                >
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                  <option value="PUBLISH">PUBLISH</option>
+                  <option value="SUBSCRIBE">SUBSCRIBE</option>
+                </select>
+              </Field>
+              <Field label="Policy type">
+                <select
+                  value={formState.policyType}
+                  onChange={(event) => setFormState((current) => ({ ...current, policyType: event.target.value }))}
+                  className={inputClass()}
+                >
+                  <option value="EXECUTE">EXECUTE</option>
+                  <option value="QUERY">QUERY</option>
+                  <option value="REGISTER">REGISTER</option>
+                  <option value="SYNC">SYNC</option>
+                  <option value="OTA">OTA</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Communication method">
+              <select
+                value={formState.communicationMethod}
+                onChange={(event) => setFormState((current) => ({ ...current, communicationMethod: event.target.value }))}
+                className={inputClass()}
+              >
+                <option value="PUBLISH">PUBLISH</option>
+                <option value="SUBSCRIBE">SUBSCRIBE</option>
+                <option value="REST">REST</option>
+                <option value="HTTP">HTTP</option>
+              </select>
+            </Field>
+            <Field label="Request payload format">
+              <textarea
+                value={formState.requestPayloadFormat}
+                onChange={(event) => setFormState((current) => ({ ...current, requestPayloadFormat: event.target.value }))}
+                className={inputClass(true)}
+                rows={6}
+                placeholder='{\n  "commands": [\n    {\n      "code": "switch_1",\n      "value": true\n    }\n  ]\n}'
+              />
+            </Field>
+            <Field label="Response payload format">
+              <textarea
+                value={formState.responsePayloadFormat}
+                onChange={(event) => setFormState((current) => ({ ...current, responsePayloadFormat: event.target.value }))}
+                className={inputClass(true)}
+                rows={4}
+                placeholder='{\n  "success": true\n}'
+              />
+            </Field>
+          </>
         ) : null}
 
         {activeNode === "item" ? (
-          <Field label="Item code">
-            <input
-              value={formState.itemCode}
-              onChange={(event) => setFormState((current) => ({ ...current, itemCode: event.target.value }))}
-              className={inputClass()}
-              placeholder="AUTO_CODE"
+          <>
+            <Field label="Item code">
+              <input
+                value={formState.itemCode}
+                onChange={(event) => setFormState((current) => ({ ...current, itemCode: event.target.value }))}
+                className={inputClass()}
+                placeholder="AUTO_CODE"
+              />
+            </Field>
+            <Field label="Metadata">
+              <textarea
+                value={formState.metadata}
+                onChange={(event) => setFormState((current) => ({ ...current, metadata: event.target.value }))}
+                className={inputClass(true)}
+                rows={4}
+                placeholder="{}"
+              />
+            </Field>
+            <Field label="Item polling config">
+              <textarea
+                value={formState.itemPollingConfig}
+                onChange={(event) => setFormState((current) => ({ ...current, itemPollingConfig: event.target.value }))}
+                className={inputClass(true)}
+                rows={4}
+                placeholder="{}"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Gateway">
+                <input
+                  value={formState.gateway}
+                  onChange={(event) => setFormState((current) => ({ ...current, gateway: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="Optional gateway"
+                />
+              </Field>
+              <Field label="Icon">
+                <input
+                  value={formState.iconName}
+                  onChange={(event) => setFormState((current) => ({ ...current, iconName: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="Device"
+                />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Tags">
+                <input
+                  value={formState.tags}
+                  onChange={(event) => setFormState((current) => ({ ...current, tags: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="switch, tuya, lighting"
+                />
+              </Field>
+              <Field label="Component count">
+                <input
+                  value={formState.componentCount}
+                  onChange={(event) => setFormState((current) => ({ ...current, componentCount: event.target.value }))}
+                  className={inputClass()}
+                  placeholder="1"
+                />
+              </Field>
+            </div>
+            <label className="flex items-start gap-3 rounded-[18px] border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-3">
+              <input
+                type="checkbox"
+                checked={formState.secureItem}
+                onChange={(event) => setFormState((current) => ({ ...current, secureItem: event.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-[var(--iotiq-border)]"
+              />
+              <div>
+                <p className="text-[12px] font-medium text-[var(--iotiq-text)]">Secure item</p>
+                <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                  Enable when the item requires secure communication or elevated policy handling.
+                </p>
+              </div>
+            </label>
+          </>
+        ) : null}
+
+        {(activeNode === "parameter") ? (
+          <Field label="Description">
+            <textarea
+              value={formState.description}
+              onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
+              className={inputClass(true)}
+              rows={3}
+              placeholder="Optional notes"
             />
           </Field>
         ) : null}
 
-        {(activeNode === "itemType" || activeNode === "parameter" || activeNode === "communication") ? (
-          <Field label="Description">
+        {(activeNode === "communication" || activeNode === "message") ? (
+          <Field label="Notes / description">
             <textarea
               value={formState.description}
               onChange={(event) => setFormState((current) => ({ ...current, description: event.target.value }))}
