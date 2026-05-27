@@ -122,6 +122,17 @@ function collectParameterKeys(payloadTemplate: Record<string, unknown> | undefin
   return Array.from(keys);
 }
 
+function findMissingParameters(
+  action: CommandDefinition,
+  parameters: Record<string, string>
+) {
+  return collectParameterKeys(action.payloadTemplate).filter((key) => !parameters[key]?.trim());
+}
+
+function hasUnresolvedParameterTokens(value: string) {
+  return /\{\{params\.[a-zA-Z0-9_]+\}\}/.test(value);
+}
+
 function createInitialDraft(device: ClaimedDeviceRecord, action: CommandDefinition): ActionDraft {
   const parameterKeys = collectParameterKeys(action.payloadTemplate);
   return {
@@ -299,11 +310,22 @@ export default function DeviceControlPage() {
       return;
     }
 
-    setSending(true);
     setSubmitError(null);
     setSubmitResult(null);
 
     try {
+      const missingParameters = findMissingParameters(activeAction, draft.parameters);
+      if (missingParameters.length > 0) {
+        setSubmitError(`Enter ${missingParameters.join(", ")} before sending ${humanizeMessageLabel(activeAction)}.`);
+        return;
+      }
+
+      if (hasUnresolvedParameterTokens(draft.payloadJson)) {
+        setSubmitError("Payload JSON still contains unresolved {{params.*}} placeholders.");
+        return;
+      }
+
+      setSending(true);
       const payloadJson = draft.payloadJson.trim() ? JSON.parse(draft.payloadJson) : {};
       const cleanParameters = Object.fromEntries(
         Object.entries(draft.parameters).filter(([, value]) => value.trim())

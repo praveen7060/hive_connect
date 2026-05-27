@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Activity, AppWindow, ArrowRight, Cpu, HardDrive, QrCode, ShieldCheck } from "lucide-react";
+import { Activity, AppWindow, ArrowRight, Cpu, HardDrive, QrCode, ShieldCheck, TrendingUp } from "lucide-react";
 import { deviceInventoryApi } from "../device-inventory/api";
 import { useCrudResource } from "../device-inventory/hooks";
 
@@ -9,6 +9,15 @@ type GenericRow = {
   id: string | number;
   createdAt?: string;
 } & Record<string, PrimitiveValue>;
+
+type Timeframe = "hourly" | "weekly" | "monthly";
+
+function getCreatedAtDate(row: GenericRow) {
+  const raw = String(row.createdAt ?? "").trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 function readCatalogVendor(value: PrimitiveValue | undefined): string {
   if (typeof value !== "string" || !value.trim()) return "";
@@ -25,13 +34,67 @@ function readCatalogVendor(value: PrimitiveValue | undefined): string {
 function formatMonthCount(rows: GenericRow[]) {
   const now = new Date();
   return rows.filter((row) => {
-    const raw = String(row.createdAt ?? "").trim();
-    if (!raw) return false;
-    const parsed = new Date(raw);
-    return !Number.isNaN(parsed.getTime()) &&
+    const parsed = getCreatedAtDate(row);
+    return parsed &&
       parsed.getMonth() === now.getMonth() &&
       parsed.getFullYear() === now.getFullYear();
   }).length;
+}
+
+function buildAnalyticsSeries(rows: GenericRow[], timeframe: Timeframe) {
+  const now = new Date();
+  const formatters: Record<Timeframe, (date: Date) => string> = {
+    hourly: (date) => `${String(date.getHours()).padStart(2, "0")}:00`,
+    weekly: (date) =>
+      date.toLocaleDateString("en-US", {
+        weekday: "short",
+      }),
+    monthly: (date) =>
+      date.toLocaleDateString("en-US", {
+        month: "short",
+      }),
+  };
+
+  const seeds: Record<Timeframe, Date[]> = {
+    hourly: Array.from({ length: 12 }, (_, index) => {
+      const slot = new Date(now);
+      slot.setMinutes(0, 0, 0);
+      slot.setHours(now.getHours() - (11 - index));
+      return slot;
+    }),
+    weekly: Array.from({ length: 7 }, (_, index) => {
+      const slot = new Date(now);
+      slot.setHours(0, 0, 0, 0);
+      slot.setDate(now.getDate() - (6 - index));
+      return slot;
+    }),
+    monthly: Array.from({ length: 6 }, (_, index) => {
+      const slot = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      slot.setHours(0, 0, 0, 0);
+      return slot;
+    }),
+  };
+
+  const slots = seeds[timeframe];
+  const bucketMap = new Map<string, number>();
+  slots.forEach((slot) => bucketMap.set(formatters[timeframe](slot), 0));
+
+  rows.forEach((row) => {
+    const parsed = getCreatedAtDate(row);
+    if (!parsed) return;
+
+    const key = formatters[timeframe](parsed);
+    if (!bucketMap.has(key)) return;
+    bucketMap.set(key, (bucketMap.get(key) ?? 0) + 1);
+  });
+
+  return slots.map((slot) => {
+    const label = formatters[timeframe](slot);
+    return {
+      label,
+      value: bucketMap.get(label) ?? 0,
+    };
+  });
 }
 
 function MetricCard({
@@ -103,7 +166,59 @@ function VendorList({ data }: { data: Array<[string, number]> }) {
   );
 }
 
+function AnalyticsChart({
+  label,
+  helper,
+  tone,
+  icon,
+  data,
+}: {
+  label: string;
+  helper: string;
+  tone: "green" | "gold";
+  icon: ReactNode;
+  data: Array<{ label: string; value: number }>;
+}) {
+  const max = Math.max(...data.map((entry) => entry.value), 1);
+  const total = data.reduce((sum, entry) => sum + entry.value, 0);
+  const barTone = tone === "green" ? "bg-[#86bd67]" : "bg-[#d5ae4b]";
+  const badgeTone = tone === "green" ? "bg-[#eef9ef] text-[#155d27]" : "bg-[#fff8e7] text-[#8a6511]";
+
+  return (
+    <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-medium text-[#161616]">{label}</p>
+          <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">{helper}</p>
+        </div>
+        <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] ${badgeTone}`}>
+          {icon}
+          {total}
+        </div>
+      </div>
+
+      <div className="mt-5 grid h-[170px] grid-cols-6 gap-2 md:grid-cols-12">
+        {data.map((entry) => (
+          <div key={entry.label} className="flex min-w-0 flex-col justify-end gap-2">
+            <div className="flex flex-1 items-end rounded-[16px] bg-[#fafaf5] px-1.5 pb-1.5">
+              <div
+                className={`w-full rounded-[12px] ${barTone} transition-[height] duration-300`}
+                style={{ height: `${Math.max(10, Math.round((entry.value / max) * 100))}%` }}
+              />
+            </div>
+            <div className="space-y-0.5 text-center">
+              <p className="truncate text-[10px] font-medium text-[#161616]">{entry.value}</p>
+              <p className="truncate text-[9.5px] uppercase tracking-[0.08em] text-[var(--iotiq-muted)]">{entry.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 export default function DashboardPage() {
+  const [timeframe, setTimeframe] = useState<Timeframe>("hourly");
   const { rows: devices, loading: devicesLoading } = useCrudResource<GenericRow>(deviceInventoryApi.devices, {
     initialRows: [],
   });
@@ -155,6 +270,14 @@ export default function DashboardPage() {
       topVendors: Array.from(deviceByVendor.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5),
     };
   }, [apps, devices, vendors]);
+
+  const analytics = useMemo(
+    () => ({
+      devices: buildAnalyticsSeries(devices, timeframe),
+      applications: buildAnalyticsSeries(apps, timeframe),
+    }),
+    [apps, devices, timeframe]
+  );
 
   return (
     <section className="space-y-4">
@@ -217,6 +340,50 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.25fr_0.95fr]">
+        <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 xl:col-span-2">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[12px] font-medium text-[#161616]">Registration analytics</p>
+              <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">
+                Compare device and application activity across hourly, weekly, and monthly ranges.
+              </p>
+            </div>
+            <div className="inline-flex rounded-full border border-[var(--iotiq-border)] bg-[#fafaf5] p-1">
+              {(["hourly", "weekly", "monthly"] as Timeframe[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setTimeframe(option)}
+                  className={`rounded-full px-3 py-2 text-[11px] font-medium capitalize transition ${
+                    timeframe === option
+                      ? "bg-white text-[#161616] shadow-[0_10px_18px_rgba(17,17,17,0.06)]"
+                      : "text-[var(--iotiq-muted)] hover:text-[#161616]"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <AnalyticsChart
+              label="Device registrations"
+              helper="New inventory records over the selected range"
+              tone="green"
+              icon={<HardDrive size={12} />}
+              data={analytics.devices}
+            />
+            <AnalyticsChart
+              label="Application activity"
+              helper="New trusted applications over the selected range"
+              tone="gold"
+              icon={<TrendingUp size={12} />}
+              data={analytics.applications}
+            />
+          </div>
+        </article>
+
         <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div>

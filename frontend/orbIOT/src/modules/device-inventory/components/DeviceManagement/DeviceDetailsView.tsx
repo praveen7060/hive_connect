@@ -236,6 +236,17 @@ function parsePayloadJson(value: string): Record<string, unknown> {
   return isRecord(parsed) ? parsed : {};
 }
 
+function findMissingCommandParameters(
+  command: CatalogCommandDefinition,
+  parameters: Record<string, string>
+) {
+  return collectParameterKeys(command.payloadTemplate).filter((key) => !parameters[key]?.trim());
+}
+
+function hasUnresolvedParameterTokens(value: string) {
+  return /\{\{params\.[a-zA-Z0-9_]+\}\}/.test(value);
+}
+
 function ActionButton({
   icon: Icon,
   label,
@@ -604,10 +615,21 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
 
   const executePolicyCommand = async (command: CatalogCommandDefinition) => {
     const draft = commandDrafts[command.key] ?? createCommandDraft(command);
-    setActionBusy(`policy:${command.key}`);
     setActionFeedback(null);
 
     try {
+      const missingParameters = findMissingCommandParameters(command, draft.parameters);
+      if (missingParameters.length > 0) {
+        setActionFeedback(`Enter ${missingParameters.join(", ")} before sending ${commandLabel(command)}.`);
+        return;
+      }
+
+      if (hasUnresolvedParameterTokens(draft.payloadJson)) {
+        setActionFeedback("Payload JSON still contains unresolved {{params.*}} placeholders.");
+        return;
+      }
+
+      setActionBusy(`policy:${command.key}`);
       const payload = parsePayloadJson(draft.payloadJson);
       await deviceInventoryApi.iot.executeCatalogCommand(deviceId, command.key, {
         messageId: command.messageId,
