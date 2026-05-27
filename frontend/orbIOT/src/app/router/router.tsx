@@ -12,74 +12,56 @@ function FeaturePage({ item }: { item: AppNavItem }) {
   const Icon = item.icon;
 
   return (
-    <section className="space-y-8">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl space-y-4">
-            <div className="expo-eyebrow inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
-              <Icon size={14} />
-              IOTIQ
+    <section className="space-y-4">
+      <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#eef9ef] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#155d27]">
+              <Icon size={13} />
+              Module
             </div>
-            <div className="space-y-3">
-              <h1 className="expo-display text-slate-950">{item.label}</h1>
-              <p className="expo-body max-w-[46rem] text-slate-600">{item.description}</p>
-            </div>
+            <h1 className="mt-3 text-[26px] font-medium tracking-[-0.05em] text-[#161616]">{item.label}</h1>
+            <p className="mt-2 text-[13px] leading-6 text-[var(--iotiq-muted)]">{item.description}</p>
           </div>
 
-          <div className="grid min-w-full gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+          <div className="grid gap-3 sm:grid-cols-3">
             {item.stats.map((stat) => (
-              <article
-                key={stat.label}
-                className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4"
-              >
-                <p className="expo-eyebrow text-slate-500">{stat.label}</p>
-                <p className="expo-metric mt-3 text-slate-950">{stat.value}</p>
-                <p className="expo-note mt-2 text-slate-600">{stat.helper}</p>
+              <article key={stat.label} className="rounded-[18px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--iotiq-muted)]">{stat.label}</p>
+                <p className="mt-2 text-[24px] font-medium tracking-[-0.04em] text-[#161616]">{stat.value}</p>
+                <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">{stat.helper}</p>
               </article>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
-        <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="expo-card-title text-slate-950">Operational Focus</p>
-              <p className="expo-body mt-2 text-slate-600">
-                This module is ready for API-backed widgets and role-specific workflows.
-              </p>
-            </div>
-            <div className="expo-note rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
-              Ready
-            </div>
-          </div>
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+          <p className="text-[12px] font-medium text-[#161616]">Current status</p>
+          <p className="mt-2 text-[13px] leading-6 text-[var(--iotiq-muted)]">
+            This screen is routed correctly and ready for deeper API wiring. The shell, navigation, and route state are already integrated.
+          </p>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="expo-eyebrow text-slate-500">Primary Action</p>
-              <p className="expo-card-title mt-3 text-slate-950">Connect service data</p>
-              <p className="expo-body mt-2 text-slate-600">
-                Add live data tables, charts, and controls for {item.label.toLowerCase()}.
-              </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-[18px] bg-[#fafaf5] px-4 py-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--iotiq-muted)]">Next step</p>
+              <p className="mt-2 text-[14px] font-medium text-[#161616]">Replace static blocks with live widgets</p>
             </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="expo-eyebrow text-slate-500">Navigation Status</p>
-              <p className="expo-card-title mt-3 text-slate-950">Route mapped in app shell</p>
-              <p className="expo-body mt-2 text-slate-600">
-                Sidebar selection, URL state, and active highlighting are already aligned.
-              </p>
+            <div className="rounded-[18px] bg-[#fff8e7] px-4 py-4">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[#8a6511]">Priority</p>
+              <p className="mt-2 text-[14px] font-medium text-[#161616]">API-first, minimal UI</p>
             </div>
           </div>
         </article>
 
-        <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="expo-eyebrow text-slate-500">IOTIQ Standard</p>
-          <p className="expo-section-title mt-3 text-slate-950">Simple. Clear. Production-ready.</p>
-          <p className="expo-body mt-3 text-slate-600">
-            Every page now uses a consistent professional shell, so teams can scale features without design drift.
-          </p>
+        <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+          <p className="text-[12px] font-medium text-[#161616]">Route details</p>
+          <div className="mt-4 space-y-2 text-[12px] text-[var(--iotiq-muted)]">
+            <p>Path: <span className="font-medium text-[#161616]">{item.path}</span></p>
+            <p>Module: <span className="font-medium text-[#161616]">{item.label}</span></p>
+            <p>Shell state: <span className="font-medium text-[#161616]">Connected</span></p>
+          </div>
         </article>
       </div>
     </section>

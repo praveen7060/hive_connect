@@ -1,24 +1,12 @@
-import { Activity, Network, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, Leaf, ShieldCheck } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../../shared/components/sidebar/Sidebar";
 import { NAV_ITEMS } from "../router/navigation";
 
 const statusChips = [
-  {
-    label: "Broker Mesh",
-    value: "Stable",
-    icon: Network,
-  },
-  {
-    label: "Policy Guard",
-    value: "Locked",
-    icon: ShieldCheck,
-  },
-  {
-    label: "Signal Flow",
-    value: "Live",
-    icon: Activity,
-  },
+  { label: "Fleet", value: "Connected", icon: Activity },
+  { label: "Policy", value: "Protected", icon: ShieldCheck },
+  { label: "Mode", value: "Green", icon: Leaf },
 ];
 
 export default function AppLayout() {
@@ -27,80 +15,59 @@ export default function AppLayout() {
     NAV_ITEMS.find((item) => item.path === location.pathname) ??
     NAV_ITEMS.find((item) => location.pathname.startsWith(item.path));
   const isDeviceInventoryRoute = location.pathname === "/devices";
-  const showShellHeader = !isDeviceInventoryRoute;
 
   return (
-    <div className="flow-app-shell min-h-screen text-slate-100">
-      <div className="flow-app-shell__bg" aria-hidden="true">
-        <div className="flow-grid" />
-        <div className="flow-orb flow-orb--one" />
-        <div className="flow-orb flow-orb--two" />
-        <div className="flow-orb flow-orb--three" />
-      </div>
-
-      <div className="relative flex min-h-screen">
+    <div className="min-h-screen bg-[var(--iotiq-bg)] text-[var(--iotiq-text)]">
+      <div className="flex min-h-screen w-full">
         <Sidebar />
 
-        <main className="relative flex min-h-screen flex-1 flex-col overflow-hidden">
-          {showShellHeader && (
-            <header className="border-b border-white/8 px-6 py-5 md:px-8">
-              <div className="flow-panel flow-panel--hero flex flex-col gap-6 px-6 py-6 md:px-8">
-                <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                  <div className="max-w-4xl">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">
-                      <Sparkles size={13} />
-                      Orbital Control Plane
-                    </div>
-                    <h2 className="flow-page-title mt-4 text-white">
-                      {activeItem?.label ?? "IOTIQ Console"}
-                    </h2>
-                    <p className="flow-copy mt-3 max-w-3xl text-slate-300">
-                      {activeItem?.description ??
-                        "Select a section from the navigation rail to move through the connected device graph."}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {statusChips.map((chip) => {
-                      const Icon = chip.icon;
-                      return (
-                        <div
-                          key={chip.label}
-                          className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 backdrop-blur-sm"
-                        >
-                          <div className="flex items-center gap-2 text-cyan-200">
-                            <Icon size={14} />
-                            <span className="text-[11px] uppercase tracking-[0.18em]">
-                              {chip.label}
-                            </span>
-                          </div>
-                          <p className="mt-3 text-[18px] font-semibold tracking-[-0.03em] text-white">
-                            {chip.value}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-300">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,0.95)]" />
-                    Animated route shell active
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                    <span className="h-2 w-2 rounded-full bg-cyan-300" />
-                    Flow-map navigation enabled
-                  </span>
-                </div>
+        <main className="flex min-h-screen flex-1 flex-col overflow-hidden">
+          <header
+            className={[
+              "border-b border-[var(--iotiq-border)] bg-white/88 backdrop-blur",
+              isDeviceInventoryRoute ? "px-3 py-3 md:px-4" : "px-4 py-4 md:px-6",
+            ].join(" ")}
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-4xl">
+                <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--iotiq-muted)]">
+                  IOTIQ Platform
+                </p>
+                <h1 className="mt-2 text-[26px] font-medium tracking-[-0.045em] text-[#161616] md:text-[32px]">
+                  {activeItem?.label ?? "Operations"}
+                </h1>
+                <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[var(--iotiq-muted)]">
+                  {activeItem?.description ??
+                    "Monitor devices, applications, and control routes from a single operational workspace."}
+                </p>
               </div>
-            </header>
-          )}
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {statusChips.map((chip) => {
+                  const Icon = chip.icon;
+                  return (
+                    <div
+                      key={chip.label}
+                      className="rounded-2xl border border-[var(--iotiq-border)] bg-[var(--iotiq-surface)] px-3 py-3"
+                    >
+                      <div className="flex items-center gap-2 text-[var(--iotiq-primary)]">
+                        <Icon size={14} />
+                        <span className="text-[10px] font-medium uppercase tracking-[0.16em]">
+                          {chip.label}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[14px] font-medium text-[#161616]">{chip.value}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </header>
 
           <div
             className={[
-              "relative flex-1 overflow-y-auto",
-              isDeviceInventoryRoute ? "px-2 py-2 md:px-3 md:py-3" : "px-5 py-5 md:px-8 md:py-8",
+              "flex-1 overflow-y-auto",
+              isDeviceInventoryRoute ? "px-0 py-1 md:px-0 md:py-2" : "px-3 py-3 md:px-5 md:py-5",
             ].join(" ")}
           >
             <Outlet />

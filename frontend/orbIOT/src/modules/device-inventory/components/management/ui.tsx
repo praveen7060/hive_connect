@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type DrawerSize = "default" | "large";
+type DrawerSize = "default" | "large" | "compact";
 
 interface RightDrawerProps {
   open: boolean;
@@ -49,24 +49,28 @@ export function RightDrawer({
 
   const widthClass =
     size === "large"
-      ? "w-full sm:max-w-[92vw] lg:w-[60vw] lg:max-w-[980px]"
-      : "w-full sm:max-w-[92vw] lg:w-[48vw] lg:max-w-[760px]";
+      ? "w-full sm:max-w-[60vw] lg:w-[46vw] lg:min-w-[560px] lg:max-w-[880px]"
+      : size === "compact"
+        ? "w-full sm:max-w-[60vw] lg:w-[540px] lg:min-w-[520px] lg:max-w-[580px]"
+        : "w-full sm:max-w-[62vw] lg:w-[44vw] lg:min-w-[520px] lg:max-w-[860px]";
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/18 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#111111]/12 backdrop-blur-[3px] inventory-drawer-overlay">
       <button
         type="button"
         onClick={onClose}
         className="hidden h-full flex-1 cursor-default lg:block"
         aria-label="Close panel overlay"
       />
-      <aside
-        className={`inventory-drawer-panel ${widthClass} h-full overflow-hidden border-l border-slate-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.12)]`}
-      >
-        <div className="h-full overflow-hidden">
-          {children}
-        </div>
-      </aside>
+      <div className="flex h-full w-full justify-end p-0 sm:p-4 lg:w-auto lg:p-5">
+        <aside
+          className={`inventory-drawer-panel ${widthClass} h-full overflow-hidden border border-[var(--iotiq-border)] bg-white shadow-[0_32px_90px_rgba(17,17,17,0.16)]`}
+        >
+          <div className="h-full overflow-hidden">
+            {children}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

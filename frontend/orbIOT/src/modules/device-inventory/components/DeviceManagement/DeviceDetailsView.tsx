@@ -1,23 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Activity,
-  AlertCircle,
   AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
+  Bot,
+  ChevronRight,
   Clock3,
-  Code2,
   Copy,
+  Download,
   FileText,
   KeyRound,
   Lock,
-  MapPin,
+  MoreHorizontal,
+  Pencil,
+  Play,
+  Power,
+  QrCode,
+  Radio,
   RefreshCw,
-  Shield,
   ShieldCheck,
+  Sparkles,
+  Upload,
   Wifi,
+  Zap,
 } from "lucide-react";
-import { deviceInventoryApi } from "../../api";
+import {
+  deviceInventoryApi,
+  type CatalogCommandDefinition,
+  type CatalogProfileResponse,
+} from "../../api";
 
 type PrimitiveValue = string | number | boolean | null;
 
@@ -27,22 +37,16 @@ interface DeviceDetailsViewProps {
   onEdit: () => void;
 }
 
-const TABS = [
-  "Overview",
-  "Monitoring",
-  "Control Panel",
-  "Components",
-  "Connectivity",
-  "Documentation",
-  "Alerts",
-  "Reports",
-  "Settings",
-] as const;
+type DetailTab =
+  | "Overview"
+  | "Control"
+  | "Connectivity"
+  | "Certificates"
+  | "Logs"
+  | "OTA"
+  | "Monitoring";
 
-const ROOT_CA_CERT = `-----BEGIN CERTIFICATE-----
-MIIE...AmazonRootCA1...AB
-Q9n9M4V2...k3s2M9e...
------END CERTIFICATE-----`;
+type DeviceRecord = Record<string, PrimitiveValue>;
 
 interface IotDocuments {
   certificate?: string | null;
@@ -51,59 +55,50 @@ interface IotDocuments {
   metadata?: string | null;
 }
 
-interface IotMetadata {
-  deviceId?: string | null;
-  thingId?: string | null;
-  thingName?: string | null;
-  thingTypeName?: string | null;
-  certificateId?: string | null;
-  certificateArn?: string | null;
-  policyAttached?: string | null;
-  bucket?: string | null;
-  documents?: IotDocuments | null;
+interface ClaimQrState {
+  svg: string;
+  deepLink: string;
+  expiresAt?: string;
+  token?: string;
 }
 
-interface CatalogMetadata {
-  vendorName?: string | null;
-  itemType?: string | null;
-  itemName?: string | null;
-  itemCode?: string | null;
-  communicationPolicy?: string | null;
+type CommandDraft = {
+  parameters: Record<string, string>;
+  payloadJson: string;
+};
+
+const TABS: Array<{
+  id: DetailTab;
+  label: string;
+  icon: typeof Activity;
+}> = [
+  { id: "Overview", label: "Overview", icon: Activity },
+  { id: "Control", label: "Control", icon: Zap },
+  { id: "Connectivity", label: "Connectivity", icon: Wifi },
+  { id: "Certificates", label: "Certificates", icon: ShieldCheck },
+  { id: "Logs", label: "Logs", icon: FileText },
+  { id: "OTA", label: "OTA", icon: Upload },
+  { id: "Monitoring", label: "Monitoring", icon: Radio },
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-interface MqttDocumentBundle {
-  certificate: string | null;
-  privateKey: string | null;
-  publicKey: string | null;
-  metadata: string | null;
-}
+function parseMetadata(value: PrimitiveValue | undefined): Record<string, unknown> {
+  if (!value || typeof value !== "string") return {};
 
-function parseIotMetadata(value: PrimitiveValue | undefined): IotMetadata | null {
-  if (!value || typeof value !== "string") return null;
   try {
-    const parsed = JSON.parse(value) as { iot?: IotMetadata };
-    if (!parsed?.iot || typeof parsed.iot !== "object") return null;
-    return parsed.iot;
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : {};
   } catch {
-    return null;
+    return {};
   }
 }
 
-function parseCatalogMetadata(value: PrimitiveValue | undefined): CatalogMetadata | null {
-  if (!value || typeof value !== "string") return null;
-  try {
-    const parsed = JSON.parse(value) as { catalog?: CatalogMetadata };
-    if (!parsed?.catalog || typeof parsed.catalog !== "object") return null;
-    return parsed.catalog;
-  } catch {
-    return null;
-  }
-}
-
-function text(value: PrimitiveValue | undefined, fallback = "-"): string {
-  if (value === null || value === undefined) return fallback;
-  const rendered = String(value).trim();
-  return rendered ? rendered : fallback;
+function getRecord(source: Record<string, unknown>, key: string): Record<string, unknown> {
+  const value = source[key];
+  return isRecord(value) ? value : {};
 }
 
 function readString(value: unknown): string | undefined {
@@ -112,928 +107,1187 @@ function readString(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
-function downloadTextFile(fileName: string, content: string): void {
+function readNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function displayText(value: PrimitiveValue | undefined, fallback = "Not available") {
+  if (value === null || value === undefined) return fallback;
+  const normalized = String(value).trim();
+  return normalized || fallback;
+}
+
+function formatDateTime(value: unknown, fallback = "Pending") {
+  const raw = readString(value);
+  if (!raw) return fallback;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatRelative(value: unknown, fallback = "No recent sync") {
+  const raw = readString(value);
+  if (!raw) return fallback;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function maskValue(value: string | undefined, lead = 8, tail = 6) {
+  if (!value) return "Protected credential";
+  if (value.length <= lead + tail) return "Protected credential";
+  return `${value.slice(0, lead)}••••${value.slice(-tail)}`;
+}
+
+function copyText(value: string) {
+  if (typeof navigator === "undefined" || !navigator.clipboard) return Promise.reject(new Error("Clipboard unavailable"));
+  return navigator.clipboard.writeText(value);
+}
+
+function downloadFile(fileName: string, content: string, contentType: string) {
   if (typeof window === "undefined") return;
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
+  link.href = url;
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
+  URL.revokeObjectURL(url);
 }
 
-function tileClass(): string {
-  return "rounded-xl border border-slate-200 bg-white shadow-sm";
+function metricTone(level: "good" | "warn" | "neutral") {
+  if (level === "good") return "border-[#dcebd6] bg-[#f6fbf2] text-[#51753d]";
+  if (level === "warn") return "border-[#ead8aa] bg-[#fff9ea] text-[#8a6511]";
+  return "border-[var(--iotiq-border)] bg-[#fafaf5] text-[var(--iotiq-muted)]";
 }
 
-function CopyButton({
+function humanizeCommandKey(value: string) {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function commandLabel(command: CatalogCommandDefinition) {
+  return command.name?.trim() || humanizeCommandKey(command.key);
+}
+
+function collectParameterKeys(payloadTemplate: Record<string, unknown> | undefined) {
+  const keys = new Set<string>();
+
+  function walk(value: unknown) {
+    if (typeof value === "string") {
+      const matches = value.matchAll(/\{\{params\.([a-zA-Z0-9_]+)\}\}/g);
+      for (const match of matches) {
+        if (match[1]) keys.add(match[1]);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      Object.values(value as Record<string, unknown>).forEach(walk);
+    }
+  }
+
+  walk(payloadTemplate);
+  return Array.from(keys);
+}
+
+function createCommandDraft(command: CatalogCommandDefinition): CommandDraft {
+  const parameterKeys = collectParameterKeys(command.payloadTemplate);
+  return {
+    parameters: Object.fromEntries(parameterKeys.map((key) => [key, ""])),
+    payloadJson: JSON.stringify(command.payloadTemplate ?? {}, null, 2),
+  };
+}
+
+function parsePayloadJson(value: string): Record<string, unknown> {
+  if (!value.trim()) return {};
+  const parsed = JSON.parse(value) as unknown;
+  return isRecord(parsed) ? parsed : {};
+}
+
+function ActionButton({
+  icon: Icon,
   label,
   onClick,
+  disabled = false,
 }: {
+  icon: typeof RefreshCw;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+      disabled={disabled}
+      className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3.5 text-[12px] font-medium text-[var(--iotiq-text)] transition hover:border-[#d9dfcb] hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
     >
-      <Copy size={12} /> {label}
+      <Icon size={14} />
+      {label}
     </button>
   );
 }
 
-function ConfigRow({
+function SmallStat({
   label,
   value,
-  onCopy,
+  meta,
 }: {
   label: string;
   value: string;
-  onCopy?: () => void;
+  meta: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-      <div>
-        <p className="text-[11px] font-semibold text-slate-500">{label}</p>
-        <p className="mt-1 font-mono text-[12px] text-slate-700">{value}</p>
-      </div>
-      {onCopy ? (
-        <button
-          type="button"
-          onClick={onCopy}
-          className="rounded-md border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-100"
-          aria-label={`Copy ${label}`}
-        >
-          <Copy size={13} />
-        </button>
-      ) : null}
+    <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+      <p className="text-[11px] text-[var(--iotiq-muted)]">{label}</p>
+      <p className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-[var(--iotiq-text)]">{value}</p>
+      <p className="mt-1 text-[11px] text-[#8b9084]">{meta}</p>
     </div>
   );
 }
 
-function SecurityChip({
-  icon,
+function SectionCard({
   title,
   subtitle,
-  tone,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  tone: "blue" | "green" | "red";
-}) {
-  const toneMap: Record<typeof tone, string> = {
-    blue: "text-blue-600",
-    green: "text-emerald-600",
-    red: "text-rose-600",
-  };
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-      <p className="flex items-center gap-2 text-[14px] font-bold text-slate-800">
-        <span className={toneMap[tone]}>{icon}</span>
-        {title}
-      </p>
-      <p className="mt-1 text-[12px] text-slate-500">{subtitle}</p>
-    </div>
-  );
-}
-
-function DocumentPreview({
-  title,
-  fileName,
-  content,
-  copyLabel,
-  onCopy,
-  onDownload,
+  action,
+  children,
 }: {
   title: string;
-  fileName: string;
-  content: string;
-  copyLabel: string;
-  onCopy: () => void;
-  onDownload: () => void;
+  subtitle?: string;
+  action?: ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
+    <section className="rounded-[24px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold text-slate-500">{title}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-slate-700">{fileName}</p>
+          <h3 className="text-[14px] font-semibold tracking-[-0.03em] text-[var(--iotiq-text)]">{title}</h3>
+          {subtitle ? <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">{subtitle}</p> : null}
         </div>
-        <div className="flex items-center gap-2">
-          <CopyButton label={copyLabel} onClick={onCopy} />
-          <CopyButton label="Download" onClick={onDownload} />
-        </div>
+        {action}
       </div>
-      <pre className="mt-3 max-h-28 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-[10px] leading-4 text-slate-600">
-{content}
-      </pre>
-    </div>
-  );
-}
-
-function CertificateCard({
-  title,
-  subtitle,
-  fileName,
-  content,
-  tone,
-  copyLabel,
-  onCopy,
-  downloadLabel,
-  onDownload,
-}: {
-  title: string;
-  subtitle: string;
-  fileName: string;
-  content: string;
-  tone: "blue" | "green" | "red";
-  copyLabel: string;
-  onCopy: () => void;
-  downloadLabel: string;
-  onDownload: () => void;
-}) {
-  const toneMap: Record<typeof tone, string> = {
-    blue: "text-blue-600",
-    green: "text-emerald-600",
-    red: "text-rose-600",
-  };
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-        <span className={toneMap[tone]}>
-          <KeyRound size={14} />
-        </span>
-        {title}
-      </p>
-      <p className="mt-1 text-[12px] text-slate-500">{subtitle}</p>
-
-      <div className="mt-4 flex items-center justify-between">
-        <p className="font-mono text-[12px] font-semibold text-slate-700">{fileName}</p>
-        <div className="flex items-center gap-2">
-          <CopyButton label={copyLabel} onClick={onCopy} />
-          <CopyButton label={downloadLabel} onClick={onDownload} />
-        </div>
-      </div>
-
-      <pre className="mt-3 max-h-36 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-[10px] leading-4 text-slate-600">
-{content}
-      </pre>
-    </div>
+      <div className="mt-4">{children}</div>
+    </section>
   );
 }
 
 export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDetailsViewProps) {
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Overview");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [mqttDocuments, setMqttDocuments] = useState<MqttDocumentBundle>({
-    certificate: null,
-    privateKey: null,
-    publicKey: null,
-    metadata: null,
-  });
+  const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
+  const [liveDevice, setLiveDevice] = useState<DeviceRecord | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [provisioningStatus, setProvisioningStatus] = useState<Record<string, unknown> | null>(null);
+  const [provisioningError, setProvisioningError] = useState<string | null>(null);
+  const [claimQr, setClaimQr] = useState<ClaimQrState | null>(null);
+  const [claimQrLoading, setClaimQrLoading] = useState(false);
+  const [claimQrError, setClaimQrError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<IotDocuments | null>(null);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [credentialsUnlocked, setCredentialsUnlocked] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [catalogProfile, setCatalogProfile] = useState<CatalogProfileResponse | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [commandDrafts, setCommandDrafts] = useState<Record<string, CommandDraft>>({});
 
-  const title = text(device.name, "Unnamed Device");
-  const serial = text(device.serialNumber, "-");
-  const status = text(device.status, "provisioning").toUpperCase();
-  const connection = text(device.connectionType, "MQTT").toUpperCase();
-  const catalogMeta = useMemo(() => parseCatalogMetadata(device.metadata), [device.metadata]);
-  const itemName = text(
-    (catalogMeta?.itemName ?? catalogMeta?.itemType ?? device.itemTypeName ?? device.itemType) as PrimitiveValue,
-    "Turbo 1 SC"
-  );
-  const vendorName = text((catalogMeta?.vendorName ?? device.vendorName) as PrimitiveValue, "IOTIQ Connect");
-  const communication = text(
-    (catalogMeta?.communicationPolicy ?? device.communicationPolicy) as PrimitiveValue,
-    "Turbo 1 SC_policy"
-  );
-  const project = text(device.project, "5129dd20-90e5-4a32-8e99-7fb97a634c7b");
+  const deviceRecord = liveDevice ?? device;
+  const deviceId = displayText(deviceRecord.id, "");
+  const deviceName = displayText(deviceRecord.name, "Unnamed device");
+  const serialNumber = displayText(deviceRecord.serialNumber, "Unknown serial");
+  const connectionType = displayText(deviceRecord.connectionType, "MQTT").toUpperCase();
+  const status = displayText(deviceRecord.status, "active").toLowerCase();
 
-  const iotMeta = useMemo(() => parseIotMetadata(device.metadata), [device.metadata]);
-  const thingIdRaw = readString(iotMeta?.thingId) ?? readString(device.foreignId);
-  const connectAdminDeviceId = readString(iotMeta?.deviceId) ?? thingIdRaw;
-  const thingNameRaw = readString(iotMeta?.thingName);
-  const thingTypeNameRaw = readString(iotMeta?.thingTypeName);
-  const documentPaths = {
-    certificate: readString(iotMeta?.documents?.certificate),
-    privateKey: readString(iotMeta?.documents?.privateKey),
-    publicKey: readString(iotMeta?.documents?.publicKey),
-    metadata: readString(iotMeta?.documents?.metadata),
-  };
+  const metadata = useMemo(() => parseMetadata(deviceRecord.metadata), [deviceRecord.metadata]);
+  const iot = useMemo(() => getRecord(metadata, "iot"), [metadata]);
+  const catalog = useMemo(() => getRecord(metadata, "catalog"), [metadata]);
+  const onboarding = useMemo(() => getRecord(metadata, "onboarding"), [metadata]);
+  const onboardingQr = useMemo(() => getRecord(onboarding, "qr"), [onboarding]);
 
-  const endpoint = text(device.endpoint, "a1r6z29mxc63px-ats.iot.ap-south-1.amazonaws.com");
-  const mqttPort = text(device.port, "8883 (MQTT over TLS)");
-  const thingName = text(thingNameRaw, title.replace(/\s+/g, "_"));
-  const thingId = text(
-    (thingIdRaw ?? device.id) as PrimitiveValue,
-    "ee13e4bd-14a0-455e-97df-7a1ab5f80dfa"
-  );
-  const thingTypeName = text(thingTypeNameRaw as PrimitiveValue, "ccms-single");
-  const certificateId = text(iotMeta?.certificateId as PrimitiveValue, "-");
-  const certificateArn = text(iotMeta?.certificateArn as PrimitiveValue, "-");
-  const policyAttached = text(iotMeta?.policyAttached as PrimitiveValue, "-");
-
-  const lastUpdate = useMemo(() => {
-    const value = device.updatedAt;
-    if (!value) return "19 February at 05:32:50 pm";
-    const parsed = new Date(String(value));
-    if (Number.isNaN(parsed.getTime())) return String(value);
-    return parsed.toLocaleString("en-US", {
-      day: "2-digit",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  }, [device.updatedAt]);
-
-  const mqttCode = useMemo(
-    () => `import ssl
-import paho.mqtt.client as mqtt
-import json
-import time
-
-# AWS IoT connection configuration
-AWS_IOT_ENDPOINT = "${endpoint}"
-AWS_IOT_PORT = 8883
-THING_NAME = "${thingName}"
-CLIENT_ID = "${thingId}"
-
-ROOT_CA_PATH = "AmazonRootCA1.pem"
-DEVICE_CERT_PATH = "device-certificate.pem"
-PRIVATE_KEY_PATH = "private-key.pem"
-
-client = mqtt.Client(client_id=CLIENT_ID)
-client.tls_set(
-    ca_certs=ROOT_CA_PATH,
-    certfile=DEVICE_CERT_PATH,
-    keyfile=PRIVATE_KEY_PATH,
-    cert_reqs=ssl.CERT_REQUIRED,
-    tls_version=ssl.PROTOCOL_TLSv1_2,
-)
-
-client.connect(AWS_IOT_ENDPOINT, AWS_IOT_PORT, keepalive=60)
-client.loop_start()`,
-    [endpoint, thingId, thingName]
-  );
-
-  const copyToClipboard = async (key: string, value: string): Promise<void> => {
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(value);
-      }
-      setCopiedKey(key);
-      setTimeout(() => {
-        setCopiedKey((current) => (current === key ? null : current));
-      }, 1400);
-    } catch {
-      setCopiedKey(null);
-    }
+  const thingId =
+    readString(iot.thingId) ??
+    readString(iot.thingName) ??
+    displayText(deviceRecord.foreignId, "Pending thing");
+  const connectAdminDeviceId = readString(iot.deviceId) ?? serialNumber;
+  const lastSyncAt =
+    readString(iot.updatedAt) ??
+    readString(onboarding.generatedAt) ??
+    displayText(deviceRecord.updatedAt, "");
+  const onboardingVersion =
+    readNumber(onboarding.onboardingVersion) ??
+    readNumber(deviceRecord.onboardingVersion) ??
+    0;
+  const firmwareVersion = readString(iot.firmwareVersion) ?? "Not reported";
+  const thingType = readString(iot.thingTypeName) ?? readString(catalog.itemType) ?? "vendor.elevate.device";
+  const secureBucket = readString(onboardingQr.bucket) ?? readString(iot.bucket) ?? "Protected bucket";
+  const secureObjectKey = readString(onboardingQr.objectKey);
+  const qrGeneratedAt = readString(onboarding.generatedAt) ?? displayText(deviceRecord.lastQrGeneratedAt, "");
+  const vendorName = readString(catalog.vendorName) ?? "Vendor not mapped";
+  const policyName = readString(iot.policyAttached) ?? readString(getRecord(catalog, "provisioning").policyName) ?? "Default device policy";
+  const certificatePaths = {
+    certificate: readString(getRecord(iot, "documents").certificate),
+    privateKey: readString(getRecord(iot, "documents").privateKey),
+    publicKey: readString(getRecord(iot, "documents").publicKey),
+    metadata: readString(getRecord(iot, "documents").metadata),
   };
 
   useEffect(() => {
-    const hasPath = Boolean(
-      documentPaths.certificate ||
-      documentPaths.privateKey ||
-      documentPaths.publicKey ||
-      documentPaths.metadata
-    );
-
-    if (!connectAdminDeviceId || !hasPath) {
-      setMqttDocuments({
-        certificate: null,
-        privateKey: null,
-        publicKey: null,
-        metadata: null,
-      });
-      setDocumentsError(null);
-      setDocumentsLoading(false);
-      return;
-    }
-
     let cancelled = false;
-    setDocumentsLoading(true);
-    setDocumentsError(null);
 
-    void deviceInventoryApi.iot
-      .getDeviceDocuments(connectAdminDeviceId, {
-        ...(thingNameRaw ? { thingName: thingNameRaw } : {}),
-        documentPaths,
-      })
-      .then((response) => {
-        if (cancelled) return;
-        setMqttDocuments(response.documents);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setMqttDocuments({
-          certificate: null,
-          privateKey: null,
-          publicKey: null,
-          metadata: null,
-        });
-        setDocumentsError(error instanceof Error ? error.message : "Failed to load MQTT documents");
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setDocumentsLoading(false);
-      });
+    const hydrate = async () => {
+      if (!deviceId) return;
 
+      setDetailsLoading(true);
+      try {
+        const [deviceData, provisioningData, profileData] = await Promise.all([
+          deviceInventoryApi.devices.getById(deviceId),
+          deviceInventoryApi.iot.getProvisioningStatus(serialNumber),
+          deviceInventoryApi.iot.getCatalogProfile(deviceId),
+        ]);
+
+        if (!cancelled) {
+          setLiveDevice(deviceData as DeviceRecord);
+          setProvisioningStatus(isRecord(provisioningData) ? provisioningData : null);
+          setCatalogProfile(profileData);
+          setCommandDrafts(
+            Object.fromEntries(
+              (profileData.commands ?? []).map((command) => [command.key, createCommandDraft(command)])
+            )
+          );
+          setProvisioningError(null);
+          setCatalogError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Unable to load live device state";
+          setProvisioningError(message);
+          setCatalogError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setDetailsLoading(false);
+        }
+      }
+    };
+
+    void hydrate();
     return () => {
       cancelled = true;
     };
-  }, [
-    connectAdminDeviceId,
-    documentPaths.certificate,
-    documentPaths.metadata,
-    documentPaths.privateKey,
-    documentPaths.publicKey,
-    thingNameRaw,
-  ]);
+  }, [deviceId, serialNumber]);
 
-  const renderOverview = () => (
-    <>
-      <div className={`${tileClass()} p-4`}>
-        <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <ShieldCheck size={14} className="text-emerald-600" /> IoT Provisioning Snapshot
-        </p>
-        <p className="mt-1 text-[12px] text-slate-500">
-          Generated Thing ID and MQTT documents from device onboarding.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <ConfigRow label="CCMS Device ID" value={text(connectAdminDeviceId as PrimitiveValue, "-")} />
-          <ConfigRow label="Thing ID" value={thingId} />
-          <ConfigRow label="Thing Type" value={thingTypeName} />
-          <ConfigRow label="Certificate ID" value={certificateId} />
-          <ConfigRow label="Certificate ARN" value={certificateArn} />
-          <ConfigRow label="Policy" value={policyAttached} />
-        </div>
-      </div>
+  const certificateId =
+    readString(provisioningStatus?.provisioning && (provisioningStatus.provisioning as Record<string, unknown>).certificateId) ??
+    readString(iot.certificateId);
+  const certificateArn =
+    readString(provisioningStatus?.provisioning && (provisioningStatus.provisioning as Record<string, unknown>).certificateArn) ??
+    readString(iot.certificateArn);
+  const secureRegion =
+    readString(provisioningStatus?.provisioning && (provisioningStatus.provisioning as Record<string, unknown>).region) ??
+    readString(onboardingQr.region) ??
+    "ap-south-1";
+  const secureState = certificateId ? "Secure" : "Provisioning";
+  const policyCommands = catalogProfile?.commands ?? [];
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className={`${tileClass()} p-4 xl:col-span-2`}>
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-800">AI Insights</h3>
-            <p className="text-[11px] text-slate-400">Just now</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center text-[13px] text-slate-500">
-            No insights available for this device yet.
-          </div>
-        </div>
+  const signalQuality = useMemo(() => {
+    const updated = new Date(lastSyncAt);
+    if (Number.isNaN(updated.getTime())) return "Medium";
 
-        <div className="grid gap-3">
-          <div className={`${tileClass()} p-3`}>
-            <p className="text-[11px] text-slate-400">Connection Status</p>
-            <p className="mt-1 text-lg font-bold text-rose-500">Offline</p>
-            <p className="text-[11px] text-slate-500">Device is offline and not connected.</p>
-          </div>
-          <div className={`${tileClass()} p-3`}>
-            <p className="text-[11px] text-slate-400">Average Uptime</p>
-            <p className="mt-1 text-lg font-bold text-teal-500">0.0%</p>
-            <p className="text-[11px] text-slate-500">Average uptime in the last 24 hours.</p>
-          </div>
-          <div className={`${tileClass()} p-3`}>
-            <p className="text-[11px] text-slate-400">Device Status</p>
-            <p className="mt-1 text-lg font-bold text-emerald-600">Online</p>
-            <p className="text-[11px] text-slate-500">Current status of this device.</p>
-          </div>
-        </div>
-      </div>
+    const ageMinutes = Math.floor((Date.now() - updated.getTime()) / 60000);
+    if (ageMinutes <= 5) return "High";
+    if (ageMinutes <= 20) return "Medium";
+    return "Low";
+  }, [lastSyncAt]);
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="grid gap-4 xl:col-span-2">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className={`${tileClass()} p-4`}>
-              <p className="text-sm font-bold text-slate-800">Current State</p>
-              <p className="mt-1 text-[11px] text-slate-400">Last available state of the device</p>
-              <div className="mt-8 text-center">
-                <p className="text-base font-semibold text-slate-700">No Parameter States</p>
-                <p className="mt-2 text-[12px] text-slate-500">
-                  No parameter states are currently available.
-                </p>
-              </div>
-            </div>
-            <div className={`${tileClass()} p-4`}>
-              <p className="text-sm font-bold text-slate-800">Parameter State</p>
-              <p className="mt-1 text-[11px] text-slate-400">Parameter values over time</p>
-              <div className="mt-8 text-center">
-                <p className="text-base font-semibold text-slate-700">No Parameter History</p>
-                <p className="mt-2 text-[12px] text-slate-500">
-                  No parameter history is available for this range.
-                </p>
-              </div>
-            </div>
-          </div>
+  const uptimeSeries = useMemo(() => {
+    const score = signalQuality === "High" ? 92 : signalQuality === "Medium" ? 68 : 34;
+    return [score - 8, score - 4, score, Math.max(24, score - 10), Math.max(18, score - 18)];
+  }, [signalQuality]);
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className={`${tileClass()} p-4`}>
-              <p className="text-sm font-bold text-slate-800">Device Statistics</p>
-              <p className="mt-1 text-[11px] text-slate-400">Message usage and device events</p>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-3 text-center">
-                  <p className="text-[10px] text-slate-500">Transactions</p>
-                  <p className="mt-1 text-lg font-bold text-blue-600">0</p>
-                </div>
-                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-2 py-3 text-center">
-                  <p className="text-[10px] text-slate-500">State Changes</p>
-                  <p className="mt-1 text-lg font-bold text-emerald-600">0</p>
-                </div>
-                <div className="rounded-lg border border-rose-100 bg-rose-50 px-2 py-3 text-center">
-                  <p className="text-[10px] text-slate-500">Disconnections</p>
-                  <p className="mt-1 text-lg font-bold text-rose-600">0</p>
-                </div>
-              </div>
-              <p className="mt-6 text-center text-[12px] text-slate-500">No messages are available.</p>
-            </div>
+  const overviewInsights = useMemo(() => {
+    if (status !== "active") {
+      return {
+        tone: "warn" as const,
+        title: "Attention recommended",
+        body: "Device is not reporting an active lifecycle state. Review connectivity and last command execution.",
+      };
+    }
 
-            <div className={`${tileClass()} p-4`}>
-              <p className="text-sm font-bold text-slate-800">Device Activity</p>
-              <p className="mt-1 text-[11px] text-slate-400">Message activity over the last 7 days</p>
-              <div className="mt-4 grid grid-cols-14 gap-1">
-                {Array.from({ length: 98 }).map((_, index) => (
-                  <span key={index} className="h-2.5 w-2.5 rounded-sm bg-slate-100" />
-                ))}
-              </div>
-              <p className="mt-4 text-[11px] text-slate-500">Less activity to more activity scale.</p>
-            </div>
-          </div>
+    if (!certificateId) {
+      return {
+        tone: "warn" as const,
+        title: "Provisioning still completing",
+        body: "Connectivity exists, but certificate visibility is still protected until the secure asset sync is confirmed.",
+      };
+    }
 
-          <div className={`${tileClass()} p-4`}>
-            <p className="text-sm font-bold text-slate-800">Service Tickets</p>
-            <p className="mt-1 text-[11px] text-slate-400">Support tickets for this device</p>
-            <div className="mt-8 text-center">
-              <p className="text-base font-semibold text-slate-700">No Tickets</p>
-              <p className="mt-2 text-[12px] text-slate-500">No service tickets found for this device.</p>
-            </div>
-          </div>
-        </div>
+    return {
+      tone: "good" as const,
+      title: "No anomalies detected",
+      body: "Heartbeat, secure storage linkage, and onboarding assets look stable from the latest sync snapshot.",
+    };
+  }, [certificateId, status]);
 
-        <div className="grid gap-4">
-          <div className={`${tileClass()} p-4`}>
-            <p className="text-sm font-bold text-slate-800">Alert Distribution</p>
-            <div className="mt-5 flex justify-between text-[12px] font-semibold">
-              <span className="text-rose-500">0% Critical</span>
-              <span className="text-amber-500">0% Warning</span>
-              <span className="text-blue-500">0% Info</span>
-            </div>
-          </div>
-
-          <div className={`${tileClass()} p-4`}>
-            <p className="text-sm font-bold text-slate-800">Device Status Distribution</p>
-            <p className="mt-8 text-center text-[12px] text-slate-500">No device status data available.</p>
-          </div>
-
-          <div className={`${tileClass()} overflow-hidden`}>
-            <div className="h-44 bg-gradient-to-b from-sky-300 to-slate-200">
-              <div className="relative h-full w-full bg-[radial-gradient(circle_at_center,rgba(2,6,23,0.25),rgba(15,23,42,0.55))]">
-                <MapPin size={28} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-rose-500" />
-              </div>
-            </div>
-            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-500">
-              <span>17.434536, 78.385539</span>
-              <RefreshCw size={12} />
-            </div>
-          </div>
-
-          <div className={`${tileClass()} p-4`}>
-            <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Clock3 size={14} /> Revision History
-            </p>
-            <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
-              {lastUpdate}
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+  const timeline = useMemo(
+    () => [
+      {
+        label: "Device record updated",
+        time: formatDateTime(deviceRecord.updatedAt),
+        note: "Inventory snapshot refreshed",
+      },
+      {
+        label: "Provisioning synced",
+        time: formatDateTime(deviceRecord.lastProvisionedAt),
+        note: certificateId ? "Certificate references linked" : "Awaiting certificate confirmation",
+      },
+      {
+        label: "QR asset generated",
+        time: formatDateTime(qrGeneratedAt, "QR not generated yet"),
+        note: secureObjectKey ? "Onboarding QR stored in secure asset bucket" : "QR asset path pending",
+      },
+      {
+        label: "Record created",
+        time: formatDateTime(deviceRecord.createdAt),
+        note: "Initial inventory registration",
+      },
+    ],
+    [certificateId, deviceRecord.createdAt, deviceRecord.lastProvisionedAt, deviceRecord.updatedAt, qrGeneratedAt, secureObjectKey]
   );
 
-  const renderConnectivity = () => (
-    <div className="space-y-4">
-      <div className={`${tileClass()} p-6`}>
-        <h3 className="text-[24px] font-extrabold tracking-[-0.02em] text-slate-900">MQTT Connection Guide</h3>
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700">
-          <CheckCircle2 size={14} className="mt-0.5" />
-          <p>
-            Device is provisioned and ready for connection. All certificates and configuration are
-            available.
-          </p>
-        </div>
-      </div>
+  const handleGenerateClaimQr = async (regenerate = false) => {
+    if (!deviceId) return;
 
-      <div className={`${tileClass()} p-4`}>
-        <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <Code2 size={14} className="text-blue-600" /> Connection Configuration
-        </p>
-        <p className="mt-1 text-[12px] text-slate-500">
-          Use these AWS IoT connection parameters for your MQTT client
-        </p>
+    setClaimQrLoading(true);
+    setClaimQrError(null);
+    try {
+      const response = await deviceInventoryApi.applicationConsole.createEnrollmentQr(deviceId, {
+        qrType: regenerate ? "device_claim_regenerated" : "device_claim",
+      });
 
-        <div className="mt-4 space-y-3">
-          <ConfigRow
-            label="AWS IoT Endpoint"
-            value={endpoint}
-            onCopy={() => {
-              void copyToClipboard("endpoint", endpoint);
-            }}
-          />
-          <ConfigRow label="Port" value={mqttPort} />
-          <ConfigRow
-            label="Thing Name"
-            value={thingName}
-            onCopy={() => {
-              void copyToClipboard("thingName", thingName);
-            }}
-          />
-          <ConfigRow
-            label="Thing ID"
-            value={thingId}
-            onCopy={() => {
-              void copyToClipboard("thingId", thingId);
-            }}
-          />
-        </div>
-      </div>
+      const qr = isRecord(response?.qr) ? response.qr : {};
+      const payload = isRecord(qr.payload) ? qr.payload : {};
+      const nextState: ClaimQrState = {
+        svg: readString(qr.svg) ?? "",
+        deepLink: readString(qr.deepLink) ?? "",
+        expiresAt: readString(payload.expiresAt),
+        token: readString(qr.token),
+      };
+      setClaimQr(nextState);
+      setActionFeedback(regenerate ? "Claim QR regenerated" : "Claim QR generated");
+    } catch (error) {
+      setClaimQrError(error instanceof Error ? error.message : "Unable to generate claim QR");
+    } finally {
+      setClaimQrLoading(false);
+    }
+  };
 
-      <div className={`${tileClass()} p-4`}>
-        <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <FileText size={14} className="text-indigo-600" /> MQTT Documents
-        </p>
-        <p className="mt-1 text-[12px] text-slate-500">
-          Real certificate files loaded from provisioning storage.
-        </p>
-        <div className="mt-4 space-y-3">
-          <DocumentPreview
-            title="Certificate"
-            fileName="device-certificate.pem"
-            content={
-              documentsLoading
-                ? "Loading certificate..."
-                : mqttDocuments.certificate ?? "Certificate is not available for this device."
-            }
-            copyLabel={copiedKey === "certPreview" ? "Copied" : "Copy"}
-            onCopy={() => {
-              void copyToClipboard("certPreview", mqttDocuments.certificate ?? "");
-            }}
-            onDownload={() => {
-              if (!mqttDocuments.certificate) return;
-              downloadTextFile("device-certificate.pem", mqttDocuments.certificate);
-            }}
-          />
-          <DocumentPreview
-            title="Private Key"
-            fileName="private-key.pem"
-            content={
-              documentsLoading
-                ? "Loading private key..."
-                : mqttDocuments.privateKey ?? "Private key is not available for this device."
-            }
-            copyLabel={copiedKey === "privatePreview" ? "Copied" : "Copy"}
-            onCopy={() => {
-              void copyToClipboard("privatePreview", mqttDocuments.privateKey ?? "");
-            }}
-            onDownload={() => {
-              if (!mqttDocuments.privateKey) return;
-              downloadTextFile("private-key.pem", mqttDocuments.privateKey);
-            }}
-          />
-          <DocumentPreview
-            title="Public Key"
-            fileName="public-key.pem"
-            content={
-              documentsLoading
-                ? "Loading public key..."
-                : mqttDocuments.publicKey ?? "Public key is not available for this device."
-            }
-            copyLabel={copiedKey === "publicPreview" ? "Copied" : "Copy"}
-            onCopy={() => {
-              void copyToClipboard("publicPreview", mqttDocuments.publicKey ?? "");
-            }}
-            onDownload={() => {
-              if (!mqttDocuments.publicKey) return;
-              downloadTextFile("public-key.pem", mqttDocuments.publicKey);
-            }}
-          />
-          <DocumentPreview
-            title="Metadata"
-            fileName="metadata.json"
-            content={
-              documentsLoading
-                ? "Loading metadata..."
-                : mqttDocuments.metadata ?? "Metadata is not available for this device."
-            }
-            copyLabel={copiedKey === "metaPreview" ? "Copied" : "Copy"}
-            onCopy={() => {
-              void copyToClipboard("metaPreview", mqttDocuments.metadata ?? "");
-            }}
-            onDownload={() => {
-              if (!mqttDocuments.metadata) return;
-              downloadTextFile("metadata.json", mqttDocuments.metadata);
-            }}
-          />
-        </div>
-        {documentsError ? (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
-            {documentsError}
-          </p>
-        ) : null}
-      </div>
+  const handleRevealCredentials = async () => {
+    const validation = typeof window !== "undefined"
+      ? window.prompt("Enter the device serial number to reveal protected credentials.")
+      : null;
 
-      <div className={`${tileClass()} p-4`}>
-        <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <ShieldCheck size={14} className="text-emerald-600" /> Security Requirements
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <SecurityChip
-            icon={<KeyRound size={14} />}
-            title="Root CA Certificate"
-            subtitle="Amazon Root CA 1"
-            tone="blue"
-          />
-          <SecurityChip
-            icon={<Shield size={14} />}
-            title="Device Certificate"
-            subtitle="X.509 Certificate"
-            tone="green"
-          />
-          <SecurityChip
-            icon={<Lock size={14} />}
-            title="Private Key"
-            subtitle="RSA Private Key"
-            tone="red"
-          />
-        </div>
-      </div>
+    if (!validation || validation.trim() !== serialNumber) {
+      setDocumentsError("Session validation failed. Use the device serial number to unlock protected assets.");
+      return;
+    }
 
-      <div className={`${tileClass()} p-4`}>
-        <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <Code2 size={14} className="text-blue-600" /> Code Examples
-        </p>
-        <p className="mt-1 text-[12px] text-slate-500">Choose your preferred implementation language</p>
+    setCredentialsUnlocked(true);
+    setDocumentsError(null);
 
-        <div className="mt-4 overflow-hidden rounded-lg border border-slate-900/20">
-          <div className="flex items-center justify-between bg-slate-900 px-3 py-2 text-white">
-            <p className="text-[12px] font-semibold">Python MQTT Client</p>
-            <button
-              type="button"
-              onClick={() => {
-                void copyToClipboard("mqttCode", mqttCode);
-              }}
-              className="rounded border border-white/20 px-2 py-1 text-[11px] text-slate-200 transition hover:bg-white/10"
-            >
-              <span className="inline-flex items-center gap-1">
-                <Copy size={11} />
-                {copiedKey === "mqttCode" ? "Copied" : "Copy"}
-              </span>
-            </button>
-          </div>
-          <pre className="max-h-64 overflow-auto bg-slate-50 p-3 text-[11px] leading-5 text-slate-700">{mqttCode}</pre>
-        </div>
-      </div>
+    if (documents || documentsLoading) return;
 
-      <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
-        <p className="flex items-start gap-2">
-          <AlertCircle size={14} className="mt-0.5" />
-          Keep your certificates secure and never share them publicly. Store them in a secure
-          location with appropriate file permissions.
-        </p>
-      </div>
+    setDocumentsLoading(true);
+    try {
+      const response = await deviceInventoryApi.iot.getDeviceDocuments(connectAdminDeviceId, {
+        thingName: thingId,
+        documentPaths: certificatePaths,
+      });
+      setDocuments(response.documents);
+    } catch (error) {
+      setDocumentsError(error instanceof Error ? error.message : "Unable to fetch protected certificate assets");
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <CertificateCard
-          title="Root CA Certificate"
-          subtitle="Amazon Root CA 1"
-          fileName="AmazonRootCA1.pem"
-          content={ROOT_CA_CERT}
-          tone="blue"
-          copyLabel={copiedKey === "rootCA" ? "Copied" : "Copy"}
-          downloadLabel="Download"
-          onCopy={() => {
-            void copyToClipboard("rootCA", ROOT_CA_CERT);
-          }}
-          onDownload={() => {
-            downloadTextFile("AmazonRootCA1.pem", ROOT_CA_CERT);
-          }}
-        />
-        <CertificateCard
-          title="Device Certificate"
-          subtitle="X.509 certificate for your device authentication"
-          fileName="device-certificate.pem"
-          content={mqttDocuments.certificate ?? "Device certificate is not available for this device."}
-          tone="green"
-          copyLabel={copiedKey === "deviceCert" ? "Copied" : "Copy"}
-          downloadLabel="Download"
-          onCopy={() => {
-            void copyToClipboard("deviceCert", mqttDocuments.certificate ?? "");
-          }}
-          onDownload={() => {
-            if (!mqttDocuments.certificate) return;
-            downloadTextFile("device-certificate.pem", mqttDocuments.certificate);
-          }}
-        />
-        <CertificateCard
-          title="Private Key"
-          subtitle="RSA private key for secure communication"
-          fileName="private-key.pem"
-          content={mqttDocuments.privateKey ?? "Private key is not available for this device."}
-          tone="red"
-          copyLabel={copiedKey === "privateKey" ? "Copied" : "Copy"}
-          downloadLabel="Download"
-          onCopy={() => {
-            void copyToClipboard("privateKey", mqttDocuments.privateKey ?? "");
-          }}
-          onDownload={() => {
-            if (!mqttDocuments.privateKey) return;
-            downloadTextFile("private-key.pem", mqttDocuments.privateKey);
-          }}
-        />
-        <CertificateCard
-          title="Public Key"
-          subtitle="Public key generated with certificate provisioning"
-          fileName="public-key.pem"
-          content={mqttDocuments.publicKey ?? "Public key is not available for this device."}
-          tone="green"
-          copyLabel={copiedKey === "publicKey" ? "Copied" : "Copy"}
-          downloadLabel="Download"
-          onCopy={() => {
-            void copyToClipboard("publicKey", mqttDocuments.publicKey ?? "");
-          }}
-          onDownload={() => {
-            if (!mqttDocuments.publicKey) return;
-            downloadTextFile("public-key.pem", mqttDocuments.publicKey);
-          }}
-        />
-        <CertificateCard
-          title="Provisioning Metadata"
-          subtitle="Generated metadata for this certificate set"
-          fileName="metadata.json"
-          content={mqttDocuments.metadata ?? "Metadata file is not available for this device."}
-          tone="blue"
-          copyLabel={copiedKey === "metadataDoc" ? "Copied" : "Copy"}
-          downloadLabel="Download"
-          onCopy={() => {
-            void copyToClipboard("metadataDoc", mqttDocuments.metadata ?? "");
-          }}
-          onDownload={() => {
-            if (!mqttDocuments.metadata) return;
-            downloadTextFile("metadata.json", mqttDocuments.metadata);
-          }}
-        />
-      </div>
+  const runControlAction = async (actionKey: string) => {
+    setActionBusy(actionKey);
+    setActionFeedback(null);
 
-      <div className={`${tileClass()} p-4`}>
-        <h4 className="text-sm font-bold text-slate-800">File Setup Instructions</h4>
-        <div className="mt-4 space-y-3 text-[13px] text-slate-700">
-          <p className="flex gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700">1</span>
-            <span>
-              <strong>Save the Root CA Certificate</strong>
-              <br />
-              Save the Amazon Root CA 1 content to a file named <code>AmazonRootCA1.pem</code>
-            </span>
-          </p>
-          <p className="flex gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700">2</span>
-            <span>
-              <strong>Save the Device Certificate</strong>
-              <br />
-              Save your device certificate to <code>device-certificate.pem</code>
-            </span>
-          </p>
-          <p className="flex gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700">3</span>
-            <span>
-              <strong>Save the Private Key</strong>
-              <br />
-              Save your private key to <code>private-key.pem</code>
-            </span>
-          </p>
-          <p className="flex gap-2">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700">4</span>
-            <span>
-              <strong>Set File Permissions</strong>
-              <br />
-              Ensure certificate files have appropriate permissions (e.g., <code>chmod 600 *.pem</code>)
-            </span>
-          </p>
-        </div>
-      </div>
+    try {
+      if (actionKey === "shadow") {
+        await deviceInventoryApi.iot.publishToDevice(connectAdminDeviceId, {
+          subTopic: `$aws/things/${thingId}/shadow/get`,
+          payload: { requestedBy: "orbIOT", deviceId: connectAdminDeviceId },
+        });
+        setActionFeedback("Shadow refresh requested");
+      } else {
+        const statusMap: Record<string, string> = {
+          restart: "restart",
+          sync: "sync",
+          reconnect: "reconnect",
+          ota: "ota_check",
+        };
+        await deviceInventoryApi.iot.controlDevice(connectAdminDeviceId, {
+          status: statusMap[actionKey] ?? actionKey,
+        });
+        setActionFeedback(
+          actionKey === "restart"
+            ? "Restart command queued"
+            : actionKey === "sync"
+              ? "State sync requested"
+              : actionKey === "reconnect"
+                ? "Reconnect command sent"
+                : "OTA check initiated"
+        );
+      }
+    } catch (error) {
+      setActionFeedback(error instanceof Error ? error.message : "Command execution failed");
+    } finally {
+      setActionBusy(null);
+    }
+  };
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-blue-900">Need Help?</p>
-            <p className="mt-1 text-[12px] text-blue-700">
-              Check our troubleshooting guide or contact support if you encounter any issues.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="rounded-md bg-blue-700 px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-blue-600"
-          >
-            Contact Support
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const updateCommandParameter = (commandKey: string, parameterKey: string, value: string) => {
+    setCommandDrafts((current) => ({
+      ...current,
+      [commandKey]: {
+        ...(current[commandKey] ?? { parameters: {}, payloadJson: "{}" }),
+        parameters: {
+          ...(current[commandKey]?.parameters ?? {}),
+          [parameterKey]: value,
+        },
+      },
+    }));
+  };
+
+  const updateCommandPayload = (commandKey: string, value: string) => {
+    setCommandDrafts((current) => ({
+      ...current,
+      [commandKey]: {
+        ...(current[commandKey] ?? { parameters: {}, payloadJson: "{}" }),
+        payloadJson: value,
+      },
+    }));
+  };
+
+  const executePolicyCommand = async (command: CatalogCommandDefinition) => {
+    const draft = commandDrafts[command.key] ?? createCommandDraft(command);
+    setActionBusy(`policy:${command.key}`);
+    setActionFeedback(null);
+
+    try {
+      const payload = parsePayloadJson(draft.payloadJson);
+      await deviceInventoryApi.iot.executeCatalogCommand(deviceId, command.key, {
+        messageId: command.messageId,
+        parameters: draft.parameters,
+        payload,
+        topic: command.topicTemplate ?? undefined,
+        subTopic: command.subTopic ?? undefined,
+      });
+      setActionFeedback(`${commandLabel(command)} command queued from messaging policy`);
+    } catch (error) {
+      setActionFeedback(error instanceof Error ? error.message : "Command execution failed");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const headerStatus = status === "active" ? "Online" : status === "provisioning" ? "Provisioning" : "Offline";
+  const monitoringLabel = detailsLoading ? "Refreshing live state" : formatRelative(lastSyncAt);
+  const onboardingQrReady = Boolean(secureObjectKey);
+  const qrCardLabel = claimQr ? "Claim QR active" : onboardingQrReady ? "Secure QR available" : "QR pending";
 
   return (
-    <div className="space-y-4">
-      <div className={`${tileClass()} p-4`}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              className="h-9 w-9 rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-              aria-label="Back to device list"
-            >
-              <ArrowLeft size={16} className="mx-auto" />
-            </button>
-            <div className="h-20 w-24 rounded-lg bg-slate-200/80 ring-1 ring-slate-300" />
-            <div>
-              <h2 className="text-[28px] font-extrabold tracking-[-0.03em] text-slate-900">{title}</h2>
-              <p className="text-[12px] text-slate-500">#{serial}</p>
-
-              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-2 text-[12px] text-slate-600 md:grid-cols-4">
-                <p>
-                  <span className="block text-[11px] text-slate-400">Item</span>
-                  <span className="font-semibold text-slate-700">{itemName}</span>
-                </p>
-                <p>
-                  <span className="block text-[11px] text-slate-400">Vendor</span>
-                  <span className="font-semibold text-slate-700">{vendorName}</span>
-                </p>
-                <p>
-                  <span className="block text-[11px] text-slate-400">Communication Policy</span>
-                  <span className="font-semibold text-slate-700">{communication}</span>
-                </p>
-                <p>
-                  <span className="block text-[11px] text-slate-400">Current Project</span>
-                  <span className="font-semibold text-slate-700">{project}</span>
-                </p>
-              </div>
+    <div className="flex h-full flex-col bg-[linear-gradient(180deg,#fcfcf8_0%,#f7f8f2_100%)] text-[var(--iotiq-text)]">
+      <div className="border-b border-[var(--iotiq-border)] bg-white/88 px-5 py-4 backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] text-[var(--iotiq-muted)]">
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-2.5 py-1 text-[11px] transition hover:bg-white"
+              >
+                <ChevronRight size={12} className="rotate-180" />
+                Devices
+              </button>
+              <span>{serialNumber}</span>
+            </div>
+            <h2 className="mt-3 truncate text-[26px] font-semibold tracking-[-0.06em] text-[var(--iotiq-text)]">
+              {deviceName}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--iotiq-muted)]">
+              <span>{vendorName}</span>
+              <span className="text-[#d1d5cb]">•</span>
+              <span>{thingType}</span>
+              <span className="text-[#d1d5cb]">•</span>
+              <span>{monitoringLabel}</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-              {status}
-            </span>
-            <span className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700">
-              {connection}
-            </span>
-            <span className="rounded-md border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">
-              SECURE
-            </span>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
-            >
-              Edit
-            </button>
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex flex-wrap justify-end gap-2">
+              {([
+                { label: headerStatus, tone: status === "active" ? "good" : status === "provisioning" ? "warn" : "neutral" },
+                { label: connectionType, tone: "neutral" as const },
+                { label: secureState, tone: certificateId ? "good" : "warn" },
+              ] as Array<{ label: string; tone: "good" | "warn" | "neutral" }>).map((pill) => (
+                <span
+                  key={pill.label}
+                  className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium ${metricTone(pill.tone)}`}
+                >
+                  <span className={`inventory-pulse-dot ${pill.tone === "good" ? "bg-[#7caf63]" : pill.tone === "warn" ? "bg-[#d9b14a]" : "bg-[#b6bbaf]"}`} />
+                  {pill.label}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <ActionButton icon={Pencil} label="Edit" onClick={onEdit} />
+              <ActionButton icon={Power} label="Restart" onClick={() => void runControlAction("restart")} disabled={actionBusy !== null} />
+              <ActionButton icon={RefreshCw} label="Sync" onClick={() => void runControlAction("sync")} disabled={actionBusy !== null} />
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] text-[var(--iotiq-text)] transition hover:bg-white"
+                aria-label="More actions"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className={`${tileClass()} p-2`}>
-        <div className="flex flex-wrap items-center gap-1">
-          {TABS.map((tab) => (
+      <div className="sticky top-0 z-10 border-b border-[var(--iotiq-border)] bg-white/84 px-4 py-3 backdrop-blur-xl">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {TABS.map(({ id, label, icon: Icon }) => (
             <button
-              key={tab}
+              key={id}
               type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition ${
-                activeTab === tab
-                  ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-                  : "text-slate-500 hover:bg-slate-100"
+              onClick={() => setActiveTab(id)}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+                activeTab === id
+                  ? "border-[#d7e7d0] bg-[rgba(124,175,99,0.12)] text-[#426230] shadow-[0_8px_20px_rgba(124,175,99,0.08)]"
+                  : "border-transparent bg-[#f7f8f2] text-[var(--iotiq-muted)] hover:border-[var(--iotiq-border)] hover:bg-white"
               }`}
             >
-              {tab}
+              <Icon size={13} />
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {activeTab === "Connectivity" ? renderConnectivity() : renderOverview()}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="space-y-4 pb-5">
+          {actionFeedback ? (
+            <div className="rounded-[18px] border border-[#e7eadf] bg-white px-4 py-3 text-[12px] text-[var(--iotiq-muted)] shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+              {actionFeedback}
+            </div>
+          ) : null}
 
-      <div className={`${tileClass()} flex flex-wrap items-center gap-5 px-4 py-2 text-[11px] text-slate-500`}>
-        <span className="flex items-center gap-1"><FileText size={12} /> Transactions</span>
-        <span className="flex items-center gap-1"><AlertTriangle size={12} /> Alerts</span>
-        <span className="flex items-center gap-1"><Wifi size={12} /> Realtime Logs</span>
-        <span className="flex items-center gap-1"><Activity size={12} /> Annotations</span>
-        <span className="ml-auto flex items-center gap-1"><Shield size={12} /> Device Health</span>
+          {activeTab === "Overview" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <SmallStat label="Thing ID" value={thingId} meta="Secure runtime identity" />
+                <SmallStat label="Firmware" value={firmwareVersion} meta="Latest reported build" />
+                <SmallStat label="Signal quality" value={signalQuality} meta={monitoringLabel} />
+                <SmallStat label="Onboarding" value={String(onboardingVersion || 1)} meta="Asset version" />
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <SectionCard
+                  title="Pairing and claim"
+                  subtitle="Primary QR actions for pairing, field claims, and operator handoff."
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => void handleGenerateClaimQr(false)}
+                      disabled={claimQrLoading}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 text-[11px] font-medium text-[var(--iotiq-text)] transition hover:bg-white disabled:opacity-45"
+                    >
+                      <QrCode size={13} />
+                      {claimQrLoading ? "Generating" : "Generate"}
+                    </button>
+                  }
+                >
+                  <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                    <div className="rounded-[22px] border border-[#e6ebdb] bg-[linear-gradient(180deg,#ffffff_0%,#f7f9f2_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                      <div className="flex h-[196px] items-center justify-center overflow-hidden rounded-[18px] border border-dashed border-[#d8dfca] bg-white">
+                        {claimQr?.svg ? (
+                          <div
+                            className="[&_svg]:h-[170px] [&_svg]:w-[170px]"
+                            dangerouslySetInnerHTML={{ __html: claimQr.svg }}
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-center text-[var(--iotiq-muted)]">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3f7ee] text-[#7caf63]">
+                              <QrCode size={28} />
+                            </div>
+                            <p className="text-[12px] font-medium text-[var(--iotiq-text)]">{qrCardLabel}</p>
+                            <p className="max-w-[150px] text-[11px] leading-5">
+                              {onboardingQrReady
+                                ? "Onboarding QR asset is stored securely. Generate a fresh claim QR when you need to share access."
+                                : "Generate a claim QR to start controlled device sharing."}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Active QR workflow</p>
+                            <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                              Secure asset storage is linked to onboarding records and claim flows.
+                            </p>
+                          </div>
+                          <ShieldCheck size={16} className="text-[#7caf63]" />
+                        </div>
+                        <div className="mt-3 grid gap-2 text-[11px] text-[var(--iotiq-muted)]">
+                          <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
+                            <span>Onboarding asset</span>
+                            <span className="font-medium text-[var(--iotiq-text)]">{onboardingQrReady ? "Stored" : "Pending"}</span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
+                            <span>Bucket</span>
+                            <span className="font-medium text-[var(--iotiq-text)]">{secureBucket}</span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
+                            <span>Generated</span>
+                            <span className="font-medium text-[var(--iotiq-text)]">{formatDateTime(qrGeneratedAt, "Pending")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <ActionButton
+                          icon={Download}
+                          label="Download QR"
+                          onClick={() => claimQr?.svg && downloadFile(`${serialNumber}-claim-qr.svg`, claimQr.svg, "image/svg+xml")}
+                          disabled={!claimQr?.svg}
+                        />
+                        <ActionButton
+                          icon={RefreshCw}
+                          label="Regenerate QR"
+                          onClick={() => void handleGenerateClaimQr(true)}
+                          disabled={claimQrLoading}
+                        />
+                        <ActionButton
+                          icon={Copy}
+                          label="Copy claim link"
+                          onClick={() => claimQr?.deepLink && void copyText(claimQr.deepLink)}
+                          disabled={!claimQr?.deepLink}
+                        />
+                      </div>
+
+                      {claimQr?.expiresAt ? (
+                        <p className="text-[11px] text-[var(--iotiq-muted)]">Claim QR expires {formatDateTime(claimQr.expiresAt)}</p>
+                      ) : null}
+                      {claimQrError ? <p className="text-[11px] text-[#a55a4d]">{claimQrError}</p> : null}
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="AI insights" subtitle="Compact operational guidance from the latest device state.">
+                  <div className={`rounded-[20px] border px-4 py-4 ${metricTone(overviewInsights.tone)}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/80">
+                        <Bot size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium">{overviewInsights.title}</p>
+                        <p className="mt-1 text-[11px] leading-5">{overviewInsights.body}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-[11px]">
+                    {[
+                      "Keep claim QR generation manual for secure field handoff.",
+                      "Use shadow refresh before manual reconnection during stale-state checks.",
+                      "Certificate material remains masked until session validation succeeds.",
+                    ].map((tip) => (
+                      <div key={tip} className="flex items-start gap-2 rounded-2xl border border-[var(--iotiq-border)] bg-[#fafaf5] px-3 py-2 text-[var(--iotiq-muted)]">
+                        <Sparkles size={13} className="mt-0.5 text-[#d9b14a]" />
+                        <span>{tip}</span>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+                <SectionCard title="Device summary" subtitle="Clean runtime context without dumping the full metadata payload.">
+                  <div className="grid gap-2 text-[12px]">
+                    {[
+                      ["Project", displayText(deviceRecord.project, "No project")],
+                      ["Connection", connectionType],
+                      ["Policy", policyName],
+                      ["Thing type", thingType],
+                      ["Region", secureRegion],
+                      ["Status", headerStatus],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex items-center justify-between rounded-2xl bg-[#fafaf5] px-3 py-2.5">
+                        <span className="text-[var(--iotiq-muted)]">{label}</span>
+                        <span className="max-w-[55%] truncate font-medium text-[var(--iotiq-text)]">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="Connectivity snapshot" subtitle="Realtime posture, sync recency, and transport confidence.">
+                  <div className="grid gap-3 lg:grid-cols-[1fr_150px]">
+                    <div className="rounded-[20px] border border-[#dcebd6] bg-[linear-gradient(180deg,#f7fbf3_0%,#ffffff_100%)] px-4 py-4">
+                      <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--iotiq-text)]">
+                        <span className="inventory-pulse-dot bg-[#7caf63]" />
+                        Link healthy
+                      </div>
+                      <p className="mt-2 text-[11px] leading-5 text-[var(--iotiq-muted)]">
+                        MQTT identity, onboarding assets, and last known sync markers are available for this device snapshot.
+                      </p>
+                      <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="rounded-2xl bg-white px-3 py-2">
+                          <p className="text-[var(--iotiq-muted)]">Last sync</p>
+                          <p className="mt-1 font-medium text-[var(--iotiq-text)]">{formatRelative(lastSyncAt)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white px-3 py-2">
+                          <p className="text-[var(--iotiq-muted)]">Signal</p>
+                          <p className="mt-1 font-medium text-[var(--iotiq-text)]">{signalQuality}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-3 py-3">
+                      <p className="text-[11px] text-[var(--iotiq-muted)]">Uptime trend</p>
+                      <div className="mt-4 flex h-[100px] items-end gap-2">
+                        {uptimeSeries.map((value, index) => (
+                          <div key={`${value}-${index}`} className="flex-1 rounded-full bg-white p-1">
+                            <div
+                              className="w-full rounded-full bg-[linear-gradient(180deg,#d9b14a_0%,#7caf63_100%)]"
+                              style={{ height: `${Math.max(14, value)}%` }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </SectionCard>
+              </div>
+            </>
+          ) : null}
+
+          {activeTab === "Control" ? (
+            <div className="grid gap-4">
+              <SectionCard
+                title="Messaging policy commands"
+                subtitle="These actions are resolved from the device communication policy and MQTT message topics."
+                action={
+                  <div className="rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-1 text-[11px] text-[var(--iotiq-muted)]">
+                    {policyCommands.length} command{policyCommands.length === 1 ? "" : "s"}
+                  </div>
+                }
+              >
+                {policyCommands.length ? (
+                  <div className="grid gap-3">
+                    {policyCommands.map((command) => {
+                      const draft = commandDrafts[command.key] ?? createCommandDraft(command);
+                      const parameterKeys = Object.keys(draft.parameters);
+                      const busy = actionBusy === `policy:${command.key}`;
+
+                      return (
+                        <div
+                          key={command.key}
+                          className="rounded-[22px] border border-[var(--iotiq-border)] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-[14px] font-medium text-[var(--iotiq-text)]">{commandLabel(command)}</p>
+                                {command.policyType ? (
+                                  <span className="rounded-full bg-[#f6f7f1] px-2 py-0.5 text-[10px] text-[#7a816f]">
+                                    {command.policyType}
+                                  </span>
+                                ) : null}
+                                {command.communicationMethod ? (
+                                  <span className="rounded-full bg-[#edf6e8] px-2 py-0.5 text-[10px] text-[#69954d]">
+                                    {command.communicationMethod}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1 text-[11px] leading-5 text-[var(--iotiq-muted)]">
+                                Topic: {command.topicTemplate ?? command.subTopic ?? "Resolved by adapter"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void executePolicyCommand(command)}
+                              disabled={busy}
+                              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#111111] px-4 text-[12px] font-medium text-white transition hover:bg-[#1f1f1f] disabled:opacity-50"
+                            >
+                              <Play size={13} />
+                              {busy ? "Running..." : "Run"}
+                            </button>
+                          </div>
+
+                          {parameterKeys.length ? (
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                              {parameterKeys.map((parameterKey) => (
+                                <label key={parameterKey} className="space-y-1.5">
+                                  <span className="text-[11px] text-[var(--iotiq-muted)]">{parameterKey}</span>
+                                  <input
+                                    value={draft.parameters[parameterKey] ?? ""}
+                                    onChange={(event) =>
+                                      updateCommandParameter(command.key, parameterKey, event.target.value)
+                                    }
+                                    className="h-10 w-full rounded-2xl border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 text-[12px] text-[var(--iotiq-text)] outline-none transition focus:border-[var(--iotiq-primary)] focus:ring-2 focus:ring-[rgba(124,175,99,0.12)]"
+                                    placeholder={`Set ${parameterKey}`}
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          <div className="mt-4 space-y-1.5">
+                            <p className="text-[11px] text-[var(--iotiq-muted)]">Payload template</p>
+                            <textarea
+                              value={draft.payloadJson}
+                              onChange={(event) => updateCommandPayload(command.key, event.target.value)}
+                              rows={6}
+                              className="w-full rounded-[20px] border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-3 font-mono text-[11px] text-[var(--iotiq-text)] outline-none transition focus:border-[var(--iotiq-primary)] focus:ring-2 focus:ring-[rgba(124,175,99,0.12)]"
+                              spellCheck={false}
+                            />
+                            <p className="text-[10px] text-[#8d9187]">
+                              Values here map directly to the messaging policy payload template and MQTT topic execution.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4 text-[12px] text-[var(--iotiq-muted)]">
+                    {catalogError
+                      ? `Unable to resolve commands from messaging policies: ${catalogError}`
+                      : "No command definitions were resolved for this device communication policy yet."}
+                  </div>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Operational actions" subtitle="High-confidence actions mapped to live IoT orchestration endpoints.">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {[
+                    { key: "restart", title: "Restart device", body: "Send a restart control command to the connected runtime.", icon: Power },
+                    { key: "sync", title: "Sync state", body: "Request a fresh state sync from the device service.", icon: RefreshCw },
+                    { key: "shadow", title: "Refresh shadow", body: "Trigger an AWS IoT shadow fetch for current cloud-side state.", icon: Activity },
+                    { key: "reconnect", title: "Reconnect MQTT", body: "Ask the device transport to rebuild its secure MQTT link.", icon: Wifi },
+                  ].map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.key}
+                        type="button"
+                        onClick={() => void runControlAction(action.key)}
+                        disabled={actionBusy !== null}
+                        className="group rounded-[22px] border border-[var(--iotiq-border)] bg-white p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#d5e4cf] hover:bg-[#fcfcf8] disabled:opacity-45"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f4f8f0] text-[#658f4f]">
+                            <Icon size={18} />
+                          </div>
+                          <ChevronRight size={15} className="text-[#b1b7aa] transition group-hover:translate-x-0.5" />
+                        </div>
+                        <p className="mt-4 text-[14px] font-medium text-[var(--iotiq-text)]">{action.title}</p>
+                        <p className="mt-1 text-[11px] leading-5 text-[var(--iotiq-muted)]">{action.body}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Firmware and lifecycle" subtitle="Compact actions for OTA and secure runtime refresh.">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4">
+                    <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Firmware posture</p>
+                    <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">Current version: {firmwareVersion}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <ActionButton icon={Upload} label="Push firmware" onClick={() => void runControlAction("ota")} disabled={actionBusy !== null} />
+                      <ActionButton icon={RefreshCw} label="Re-scan" onClick={() => void runControlAction("sync")} disabled={actionBusy !== null} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+                    <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Execution notes</p>
+                    <div className="mt-3 space-y-2 text-[11px] text-[var(--iotiq-muted)]">
+                      <div className="rounded-2xl bg-[#fafaf5] px-3 py-2">Runtime actions are sent through the Orbit IoT orchestration layer.</div>
+                      <div className="rounded-2xl bg-[#fafaf5] px-3 py-2">Protected credential material is never auto-rendered in the control surface.</div>
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          ) : null}
+
+          {activeTab === "Connectivity" ? (
+            <div className="grid gap-4">
+              <SectionCard title="Realtime connectivity" subtitle="Transport confidence and secure link posture.">
+                <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                  <div className="rounded-[22px] border border-[#dcebd6] bg-[linear-gradient(180deg,#f7fbf3_0%,#ffffff_100%)] px-4 py-4">
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--iotiq-text)]">
+                      <span className="inventory-pulse-dot bg-[#7caf63]" />
+                      Transport active
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-[var(--iotiq-muted)]">
+                      Device is associated with {connectionType} transport and has secure asset references synced from provisioning.
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-2xl bg-white px-3 py-2">
+                        <p className="text-[11px] text-[var(--iotiq-muted)]">Thing</p>
+                        <p className="mt-1 text-[12px] font-medium text-[var(--iotiq-text)]">{thingId}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white px-3 py-2">
+                        <p className="text-[11px] text-[var(--iotiq-muted)]">Region</p>
+                        <p className="mt-1 text-[12px] font-medium text-[var(--iotiq-text)]">{secureRegion}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Link diagnostics</p>
+                      <Wifi size={16} className="text-[#7caf63]" />
+                    </div>
+                    <div className="mt-3 space-y-2 text-[11px]">
+                      {[
+                        ["Last sync", formatDateTime(lastSyncAt)],
+                        ["Signal quality", signalQuality],
+                        ["Secure asset state", secureState],
+                        ["Provisioning version", String(onboardingVersion || 1)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between rounded-2xl bg-[#fafaf5] px-3 py-2">
+                          <span className="text-[var(--iotiq-muted)]">{label}</span>
+                          <span className="font-medium text-[var(--iotiq-text)]">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          ) : null}
+
+          {activeTab === "Certificates" ? (
+            <div className="grid gap-4">
+              <SectionCard title="Protected credential assets" subtitle="Sensitive certificate material stays masked until an operator validates access.">
+                <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
+                  <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4">
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--iotiq-text)]">
+                      <Lock size={15} className="text-[#7caf63]" />
+                      Protected storage
+                    </div>
+                    <div className="mt-3 space-y-2 text-[11px]">
+                      {[
+                        ["Certificate ID", credentialsUnlocked ? certificateId ?? "Unavailable" : maskValue(certificateId)],
+                        ["Certificate ARN", credentialsUnlocked ? certificateArn ?? "Unavailable" : maskValue(certificateArn, 12, 10)],
+                        ["Bucket", secureBucket],
+                        ["Object path", credentialsUnlocked ? secureObjectKey ?? "Unavailable" : maskValue(secureObjectKey, 12, 12)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
+                          <span className="text-[var(--iotiq-muted)]">{label}</span>
+                          <span className="max-w-[56%] truncate font-medium text-[var(--iotiq-text)]">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <ActionButton icon={KeyRound} label={credentialsUnlocked ? "Unlocked" : "Reveal credentials"} onClick={() => void handleRevealCredentials()} />
+                      <ActionButton
+                        icon={Copy}
+                        label="Copy cert ARN"
+                        onClick={() => certificateArn && void copyText(certificateArn)}
+                        disabled={!credentialsUnlocked || !certificateArn}
+                      />
+                    </div>
+                    {documentsError ? <p className="mt-3 text-[11px] text-[#a55a4d]">{documentsError}</p> : null}
+                  </div>
+
+                  <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                    <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Secure document bundle</p>
+                    <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                      Private keys and certificate payloads stay concealed until validated for this session.
+                    </p>
+                    <div className="mt-4 space-y-2">
+                      {[
+                        { key: "certificate", label: "Device certificate", value: documents?.certificate },
+                        { key: "privateKey", label: "Private key", value: documents?.privateKey },
+                        { key: "publicKey", label: "Public key", value: documents?.publicKey },
+                        { key: "metadata", label: "Metadata manifest", value: documents?.metadata },
+                      ].map((entry) => {
+                        const documentValue = entry.value ?? undefined;
+
+                        return (
+                          <div key={entry.key} className="rounded-2xl border border-[var(--iotiq-border)] bg-[#fafaf5] px-3 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[12px] font-medium text-[var(--iotiq-text)]">{entry.label}</p>
+                                <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                                  {credentialsUnlocked
+                                    ? documentValue
+                                      ? "Protected asset loaded"
+                                      : documentsLoading
+                                        ? "Fetching secure asset"
+                                        : "No asset available"
+                                    : "Protected credential"}
+                                </p>
+                              </div>
+                              <Lock size={14} className="text-[#7caf63]" />
+                            </div>
+                            {credentialsUnlocked && documentValue ? (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <ActionButton icon={Copy} label="Copy" onClick={() => void copyText(documentValue)} />
+                                <ActionButton
+                                  icon={Download}
+                                  label="Download"
+                                  onClick={() => downloadFile(`${serialNumber}-${entry.key}.txt`, documentValue, "text/plain;charset=utf-8")}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          ) : null}
+
+          {activeTab === "Logs" ? (
+            <SectionCard title="Operational timeline" subtitle="A compact history stitched from inventory, provisioning, and QR lifecycle markers.">
+              <div className="space-y-3">
+                {timeline.map((entry) => (
+                  <div key={entry.label} className="flex gap-3 rounded-[20px] border border-[var(--iotiq-border)] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                    <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-2xl bg-[#f4f8f0] text-[#658f4f]">
+                      <Clock3 size={14} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[var(--iotiq-text)]">{entry.label}</p>
+                      <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">{entry.time}</p>
+                      <p className="mt-1 text-[11px] text-[#8d9187]">{entry.note}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          ) : null}
+
+          {activeTab === "OTA" ? (
+            <SectionCard title="OTA readiness" subtitle="Firmware visibility and upgrade preparation in one compact surface.">
+              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                  <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Current build</p>
+                  <p className="mt-2 text-[24px] font-semibold tracking-[-0.05em] text-[var(--iotiq-text)]">{firmwareVersion}</p>
+                  <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">Latest value reported from device metadata.</p>
+                </div>
+                <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4">
+                  <p className="text-[13px] font-medium text-[var(--iotiq-text)]">Upgrade actions</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <ActionButton icon={Upload} label="Push firmware" onClick={() => void runControlAction("ota")} disabled={actionBusy !== null} />
+                    <ActionButton icon={RefreshCw} label="Verify state" onClick={() => void runControlAction("sync")} disabled={actionBusy !== null} />
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+          ) : null}
+
+          {activeTab === "Monitoring" ? (
+            <div className="grid gap-4">
+              <SectionCard title="Monitoring widgets" subtitle="Operational health cards that stay useful even without a live telemetry stream.">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--iotiq-text)]">
+                      <Activity size={15} className="text-[#7caf63]" />
+                      Device health
+                    </div>
+                    <p className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-[var(--iotiq-text)]">
+                      {status === "active" ? "Stable" : "Attention"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">{overviewInsights.body}</p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--iotiq-text)]">
+                      <ShieldCheck size={15} className="text-[#d9b14a]" />
+                      Secure posture
+                    </div>
+                    <p className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-[var(--iotiq-text)]">{secureState}</p>
+                    <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                      {certificateId ? "Certificate references are attached to the runtime identity." : "Secure asset sync is still being confirmed."}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+                    <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--iotiq-text)]">
+                      <AlertTriangle size={15} className="text-[#7caf63]" />
+                      Alert state
+                    </div>
+                    <p className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-[var(--iotiq-text)]">
+                      {status === "active" ? "Quiet" : "Watch"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">
+                      {status === "active" ? "No anomalies detected in the latest snapshot." : "Review connectivity and runtime actions."}
+                    </p>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          ) : null}
+
+          {provisioningError ? (
+            <div className="rounded-[18px] border border-[#efddd8] bg-[#fff7f5] px-4 py-3 text-[11px] text-[#a55a4d]">
+              {provisioningError}
+            </div>
+          ) : null}
+
+          {detailsLoading ? (
+            <div className="flex items-center gap-2 rounded-[18px] border border-[var(--iotiq-border)] bg-white px-4 py-3 text-[11px] text-[var(--iotiq-muted)]">
+              <RefreshCw size={13} className="animate-spin" />
+              Refreshing live device context
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
