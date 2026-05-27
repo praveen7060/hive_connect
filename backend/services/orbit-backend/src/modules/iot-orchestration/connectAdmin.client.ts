@@ -42,6 +42,7 @@ type ProvisionRequest = {
   s3Prefix?: string;
   channels?: string;
   forceProvision?: boolean;
+  assetVersion?: number;
 };  
 
 type ControlRequest = {

@@ -332,18 +332,21 @@ export default function DeviceControlPage() {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <section className="device-control-theme space-y-6">
+      <div className="flow-module-hero overflow-hidden rounded-[32px] px-6 py-7 md:px-8">
+        <div className="flow-module-hero__mesh" aria-hidden="true" />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Device Control</p>
-          <h1 className="mt-1 text-[24px] font-semibold tracking-[-0.04em] text-slate-950">Action control panel</h1>
-          <p className="mt-2 text-[13px] text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">Device Control</p>
+          <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.055em] text-white md:text-[38px]">Action control panel</h1>
+          <p className="mt-3 max-w-3xl text-[13px] leading-7 text-slate-300">
             Review claimed devices, inspect device-type topic actions, and configure the exact MQTT payload before dispatch.
           </p>
         </div>
-        <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[12px] text-slate-500 shadow-sm">
+        <div className="rounded-full border border-white/10 bg-white/6 px-4 py-2 text-[12px] text-slate-200 shadow-sm backdrop-blur-sm">
           {selectedApp ? `${selectedApp.name} selected` : "Select an application to begin"}
         </div>
+      </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

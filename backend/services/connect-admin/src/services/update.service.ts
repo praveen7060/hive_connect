@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma'
-import { syncDiscoveredDeviceToOrbit } from './orbit-sync.service'
+import { syncDiscoveredDeviceToOrbit, syncTelemetryToOrbit } from './orbit-sync.service'
+import { provisionThingAndStoreCertificates } from './iot-provisioning.service'
 import { handleSmartMeterUpdate, isSmartMeter } from './smartmeter.service'
 import { saveSwitchStatus } from './switch.service'
 
@@ -26,6 +27,60 @@ function inferDeviceType(deviceId: string) {
   }
 
   return 'SINGLE'
+}
+
+function buildThingTypeName(deviceType: string) {
+  const normalizedType = deviceType
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9:_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-_:]+|[-_:]+$/g, '')
+
+  return `ccms-${normalizedType || 'single'}`.slice(0, 128)
+}
+
+async function ensureProvisionedCertificateAssets(deviceId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `update:provision:${deviceId}`)
+
+    const current = await tx.device.findUnique({
+      where: { deviceId }
+    })
+
+    if (!current?.thingId || current.certificateId) {
+      return current
+    }
+
+    const assetVersion =
+      typeof current.certificateVersion === 'number' && current.certificateVersion > 0
+        ? current.certificateVersion + 1
+        : 1
+
+    const provisioning = await provisionThingAndStoreCertificates({
+      deviceId: current.deviceId,
+      thingName: current.thingId,
+      thingTypeName: buildThingTypeName(current.deviceType),
+      s3Prefix: `ccms/devices/${current.deviceId}`,
+      assetVersion
+    })
+
+    return tx.device.update({
+      where: { deviceId },
+      data: {
+        certificateId: provisioning.certificateId,
+        certificateArn: provisioning.certificateArn,
+        certificateBucket: provisioning.bucket,
+        certificateRegion: provisioning.region,
+        certificateVersion: provisioning.assetVersion,
+        certificateKey: provisioning.s3Keys.certificate,
+        privateKeyKey: provisioning.s3Keys.privateKey,
+        publicKeyKey: provisioning.s3Keys.publicKey,
+        metadataKey: provisioning.s3Keys.metadata,
+        lastProvisionedAt: new Date(provisioning.generatedAt)
+      }
+    })
+  })
 }
 
 export async function handleUpdate(payload: any, topic?: string) {
@@ -62,6 +117,15 @@ export async function handleUpdate(payload: any, topic?: string) {
         rawPayload: payload,
         telemetryTopic: topic
       })
+      await syncTelemetryToOrbit({
+        serialNumber: deviceid,
+        topic,
+        thingId,
+        vendorName: 'ELEVATE',
+        source: 'connect-admin',
+        receivedAt: new Date().toISOString(),
+        payload
+      })
       return
     }
 
@@ -88,6 +152,19 @@ export async function handleUpdate(payload: any, topic?: string) {
           ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
         }
       })
+    }
+
+    if (device.thingId && !device.certificateId) {
+      try {
+        device = await ensureProvisionedCertificateAssets(device.deviceId)
+        console.log(`Certificates ensured: ${deviceid}`)
+      } catch (error) {
+        console.warn(
+          `Certificate provisioning skipped for ${deviceid}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        )
+      }
     }
 
     if (channels) {
@@ -146,6 +223,15 @@ export async function handleUpdate(payload: any, topic?: string) {
       source: 'connect-admin',
       rawPayload: payload,
       telemetryTopic: topic
+    })
+    await syncTelemetryToOrbit({
+      serialNumber: deviceid,
+      topic,
+      thingId: device.thingId ?? thingId,
+      vendorName: 'ELEVATE',
+      source: 'connect-admin',
+      receivedAt: new Date().toISOString(),
+      payload
     })
   } catch (error) {
     console.error('Error handling update:', error)

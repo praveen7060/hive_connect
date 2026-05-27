@@ -9,6 +9,7 @@ import {
   provisionThingSchema,
   publishDeviceSchema,
   subscribeTopicsSchema,
+  telemetryIngestSchema,
 } from "./iot.schema";
 import { iotService } from "./iot.service";
 
@@ -95,6 +96,15 @@ export const iotController = {
     }
   },
 
+  async getCatalogCapabilities(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await iotService.getCatalogCapabilities(req.params.id);
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async provisionCatalogDevice(req: Request, res: Response, next: NextFunction) {
     try {
       const payload = catalogProvisionSchema.parse(req.body ?? {});
@@ -124,6 +134,16 @@ export const iotController = {
     try {
       const payload = catalogSubscriptionSchema.parse(req.body);
       const data = await iotService.subscribeCatalogDevice(req.params.id, payload, getCorrelationId(req));
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async ingestTelemetry(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payload = telemetryIngestSchema.parse(req.body);
+      const data = await iotService.ingestTelemetry(payload, getCorrelationId(req));
       res.json(data);
     } catch (error) {
       next(error);

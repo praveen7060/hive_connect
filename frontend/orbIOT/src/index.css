@@ -1,28 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --iotiq-bg: #eaf3ff;
-  --iotiq-bg-soft: #f2f8ff;
-  --iotiq-surface: #f8fbff;
-  --iotiq-surface-alt: #edf5ff;
-  --iotiq-text: #0f172a;
-  --iotiq-muted: #475569;
-  --iotiq-border: #cfe0f5;
-  --iotiq-primary: #0a6ecf;
-  --iotiq-primary-hover: #095db0;
-  --iotiq-accent: #0b8b8f;
+  --iotiq-bg: #f7f8f2;
+  --iotiq-surface: #ffffff;
+  --iotiq-surface-soft: #fafaf5;
+  --iotiq-text: #161616;
+  --iotiq-muted: #6f7468;
+  --iotiq-border: #e7eadf;
+  --iotiq-active: rgba(124, 175, 99, 0.11);
+  --iotiq-primary: #7caf63;
+  --iotiq-primary-strong: #5d8d46;
+  --iotiq-gold: #d9b14a;
 
   color: var(--iotiq-text);
   background: var(--iotiq-bg);
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  line-height: 1.65;
+  line-height: 1.55;
   font-weight: 400;
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv11", "ss01";
 }
 
 * {
@@ -38,15 +37,12 @@ body,
 body {
   margin: 0;
   min-width: 320px;
-  color: var(--iotiq-text);
-  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.75;
-  letter-spacing: -0.011em;
   background:
-    radial-gradient(1200px 520px at 100% -10%, #cfe5ff 0%, rgba(207, 229, 255, 0) 62%),
-    radial-gradient(900px 420px at -10% 100%, #dff0ff 0%, rgba(223, 240, 255, 0) 64%),
+    radial-gradient(900px 340px at top right, rgba(124, 175, 99, 0.08), transparent 60%),
+    radial-gradient(700px 260px at bottom left, rgba(217, 177, 74, 0.08), transparent 60%),
     var(--iotiq-bg);
+  color: var(--iotiq-text);
+  font-size: 15px;
 }
 
 a {
@@ -66,217 +62,198 @@ h2,
 h3,
 h4,
 h5,
-h6 {
-  margin: 0;
-  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-}
-
+h6,
 p {
   margin: 0;
 }
 
-.expo-eyebrow {
-  font-size: 0.69rem;
-  line-height: 1.1rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.expo-display {
-  font-size: clamp(2.5rem, 4.4vw, 4rem);
-  line-height: 1.02;
-  font-weight: 700;
-  letter-spacing: -0.055em;
-}
-
-.expo-page-title {
-  font-size: clamp(1.8rem, 2.8vw, 2.55rem);
-  line-height: 1.05;
-  font-weight: 620;
-  letter-spacing: -0.045em;
-}
-
-.expo-section-title {
-  font-size: clamp(1.45rem, 2vw, 2rem);
-  line-height: 1.1;
-  font-weight: 620;
-  letter-spacing: -0.042em;
-}
-
-.expo-card-title {
-  font-size: 1rem;
-  line-height: 1.35;
-  font-weight: 560;
-  letter-spacing: -0.022em;
-}
-
-.expo-body {
-  font-size: 0.94rem;
-  line-height: 1.68;
-  font-weight: 400;
-  letter-spacing: -0.011em;
-}
-
-.expo-note {
-  font-size: 0.82rem;
-  line-height: 1.55;
-  font-weight: 430;
-  letter-spacing: -0.01em;
-}
-
+.expo-eyebrow,
+.expo-display,
+.expo-page-title,
+.expo-section-title,
+.expo-card-title,
+.expo-body,
+.expo-note,
 .expo-metric {
-  font-size: clamp(1.875rem, 2.5vw, 2.5rem);
-  line-height: 1.08;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  all: unset;
 }
 
-.inventory-form-shell {
+.inventory-form-shell,
+.inventory-flow-shell {
   width: 100%;
   max-width: 100%;
 }
 
-.inventory-page-theme {
-  background: linear-gradient(180deg, var(--iotiq-bg-soft) 0%, #edf5ff 100%);
+.app-console-theme .rounded-\[26px\],
+.app-console-theme .rounded-\[24px\],
+.device-control-theme .rounded-\[24px\],
+.inventory-page-theme .inventory-kpi-card,
+.inventory-form-theme .inventory-form-panel {
+  border-color: var(--iotiq-border) !important;
+  background: var(--iotiq-surface) !important;
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.04) !important;
+}
+
+.app-console-theme [class*="text-slate-900"],
+.app-console-theme [class*="text-slate-800"],
+.device-control-theme [class*="text-slate-900"],
+.device-control-theme [class*="text-slate-800"],
+.inventory-page-theme [class*="text-slate-900"],
+.inventory-form-theme [class*="text-slate-900"] {
+  color: var(--iotiq-text) !important;
+}
+
+.app-console-theme [class*="text-slate-700"],
+.app-console-theme [class*="text-slate-600"],
+.app-console-theme [class*="text-slate-500"],
+.app-console-theme [class*="text-slate-400"],
+.device-control-theme [class*="text-slate-700"],
+.device-control-theme [class*="text-slate-600"],
+.device-control-theme [class*="text-slate-500"],
+.device-control-theme [class*="text-slate-400"],
+.inventory-page-theme [class*="text-slate-700"],
+.inventory-page-theme [class*="text-slate-600"],
+.inventory-page-theme [class*="text-slate-500"],
+.inventory-form-theme [class*="text-slate-700"],
+.inventory-form-theme [class*="text-slate-600"] {
+  color: var(--iotiq-muted) !important;
+}
+
+.app-shell-input,
+.app-shell-select,
+.inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.inventory-form-theme select,
+.inventory-form-theme textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--iotiq-border) !important;
+  border-radius: 14px;
+  background: #fcfcf8 !important;
+  color: var(--iotiq-text) !important;
+  box-shadow: none !important;
+}
+
+.app-shell-input:focus,
+.app-shell-select:focus,
+.inventory-form-theme input:focus,
+.inventory-form-theme select:focus,
+.inventory-form-theme textarea:focus {
+  outline: none;
+  border-color: var(--iotiq-primary) !important;
+  box-shadow: 0 0 0 3px rgba(124, 175, 99, 0.12) !important;
+}
+
+.app-shell-search {
+  border: 1px solid var(--iotiq-border);
+  border-radius: 9999px;
+  background: #fcfcf8;
+}
+
+.app-console-theme table thead tr,
+.device-control-theme table thead tr {
+  background: #fafaf5 !important;
+  border-color: var(--iotiq-border) !important;
+}
+
+.app-console-theme table tbody tr,
+.device-control-theme table tbody tr {
+  border-color: #f0f1ea !important;
+}
+
+.app-console-theme table tbody tr:hover,
+.device-control-theme table tbody tr:hover {
+  background: #fcfcf8 !important;
+}
+
+.app-console-theme button[class*="bg-slate-900"],
+.device-control-theme button[class*="bg-slate-900"],
+.inventory-page-theme button[class*="bg-slate-900"],
+.inventory-form-theme button[class*="bg-slate-900"],
+.inventory-form-theme button[class*="bg-[#0f2554]"],
+.inventory-form-theme button[class*="bg-[#3d95f5]"] {
+  background: #111111 !important;
+  border-color: #111111 !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+.app-console-theme button[class*="border-slate-200"],
+.device-control-theme button[class*="border-slate-200"],
+.inventory-page-theme button[class*="border-slate-200"],
+.inventory-form-theme button[class*="border-slate-200"] {
+  border-color: var(--iotiq-border) !important;
+  background: #fcfcf8 !important;
+  color: var(--iotiq-text) !important;
+}
+
+.app-console-theme .bg-sky-50\/80,
+.device-control-theme .bg-slate-50\/60,
+.device-control-theme .bg-slate-50,
+.inventory-form-theme .inventory-form-header,
+.inventory-form-theme .inventory-form-footer,
+.inventory-form-theme .inventory-form-body {
+  background: #fafaf5 !important;
+}
+
+.inventory-page-theme,
+.inventory-form-theme {
   color: var(--iotiq-text);
   font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
-.inventory-page-theme h1,
-.inventory-page-theme h2,
-.inventory-page-theme h3 {
-  color: #12263a;
-  font-weight: 700 !important;
+.inventory-drawer-overlay {
+  animation: inventoryOverlayIn 180ms ease-out;
 }
 
-.inventory-page-theme .inventory-kpi-card {
-  border: 1px solid var(--iotiq-border);
-  background: linear-gradient(180deg, #fafdff 0%, #f2f8ff 100%);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+.inventory-drawer-panel {
+  border-radius: 28px;
+  animation: inventoryDrawerIn 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.inventory-page-theme .inventory-kpi-value {
-  color: #0f172a !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.03em !important;
+.inventory-pulse-dot {
+  display: inline-flex;
+  height: 8px;
+  width: 8px;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 0 rgba(124, 175, 99, 0.32);
+  animation: inventoryPulse 1.9s ease-out infinite;
 }
 
-.inventory-page-theme button[class*="bg-slate-900"],
-.inventory-page-theme button[class*="bg-slate-800"],
-.inventory-page-theme button[class*="bg-blue-600"],
-.inventory-page-theme button[class*="bg-blue-700"],
-.inventory-form-theme button[class*="bg-slate-900"],
-.inventory-form-theme button[class*="bg-slate-800"],
-.inventory-form-theme button[class*="bg-blue-600"],
-.inventory-form-theme button[class*="bg-blue-700"] {
-  background: var(--iotiq-primary) !important;
-  border-color: var(--iotiq-primary) !important;
-  color: #ffffff !important;
+@keyframes inventoryOverlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
-.inventory-page-theme button[class*="bg-slate-900"]:hover,
-.inventory-page-theme button[class*="bg-slate-800"]:hover,
-.inventory-page-theme button[class*="bg-blue-600"]:hover,
-.inventory-page-theme button[class*="bg-blue-700"]:hover,
-.inventory-form-theme button[class*="bg-slate-900"]:hover,
-.inventory-form-theme button[class*="bg-slate-800"]:hover,
-.inventory-form-theme button[class*="bg-blue-600"]:hover,
-.inventory-form-theme button[class*="bg-blue-700"]:hover {
-  background: var(--iotiq-primary-hover) !important;
+@keyframes inventoryDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.inventory-page-theme button[class*="border-slate-300"][class*="bg-white"],
-.inventory-page-theme button[class*="border-slate-200"][class*="bg-white"],
-.inventory-form-theme button[class*="border-slate-300"][class*="bg-white"],
-.inventory-form-theme button[class*="border-slate-200"][class*="bg-white"] {
-  border-color: var(--iotiq-border) !important;
-  background: #f2f8ff !important;
-  color: #1e293b !important;
-}
+@keyframes inventoryPulse {
+  0% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(124, 175, 99, 0.32);
+  }
 
-.inventory-page-theme [class*="text-slate-900"],
-.inventory-page-theme [class*="text-slate-800"],
-.inventory-page-theme [class*="text-gray-900"] {
-  color: #12263a !important;
-}
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(124, 175, 99, 0);
+  }
 
-.inventory-page-theme [class*="text-slate-600"],
-.inventory-page-theme [class*="text-slate-500"],
-.inventory-page-theme [class*="text-gray-600"],
-.inventory-page-theme [class*="text-gray-500"] {
-  color: #5b6b7f !important;
-}
-
-.inventory-form-theme {
-  color: #12263a;
-  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-}
-
-.inventory-form-theme .inventory-form-panel {
-  border: 1px solid var(--iotiq-border);
-  border-radius: 16px;
-  background: var(--iotiq-surface);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-}
-
-.inventory-form-theme .inventory-form-header {
-  border-bottom: 1px solid var(--iotiq-border);
-  background: #eff6ff;
-  padding: 1.5rem 1.75rem 1.1rem;
-}
-
-.inventory-form-theme .inventory-form-body {
-  background: #f9fcff;
-  padding: 1.25rem 1.75rem 1.5rem;
-}
-
-.inventory-form-theme .inventory-form-footer {
-  border-top: 1px solid var(--iotiq-border);
-  background: #eff6ff;
-  padding: 1rem 1.75rem;
-}
-
-.inventory-form-theme h2,
-.inventory-form-theme h3 {
-  color: #12263a;
-  font-weight: 700 !important;
-}
-
-.inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
-.inventory-form-theme select,
-.inventory-form-theme textarea {
-  border: 1px solid var(--iotiq-border);
-  border-radius: 8px;
-  background: #ffffff;
-  color: #1f2937;
-  font-size: 0.84rem;
-}
-
-.inventory-form-theme input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
-.inventory-form-theme select:focus,
-.inventory-form-theme textarea:focus {
-  border-color: #78a7d4;
-  box-shadow: 0 0 0 2px rgba(10, 110, 207, 0.14);
-  outline: none;
-}
-
-.inventory-form-theme label > span {
-  color: #334155;
-  font-weight: 600;
-}
-
-.inventory-form-theme [class*="text-[#0f2554]"],
-.inventory-form-theme [class*="text-[#334664]"],
-.inventory-form-theme [class*="text-[#25334d]"],
-.inventory-form-theme [class*="text-slate-900"],
-.inventory-form-theme [class*="text-slate-700"] {
-  color: #1f2937 !important;
-}
-
-.inventory-form-theme button[class*="bg-[#0f2554]"],
-.inventory-form-theme button[class*="bg-[#3d95f5]"] {
-  background: var(--iotiq-primary) !important;
-  border-color: var(--iotiq-primary) !important;
-  color: #ffffff !important;
+  100% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 rgba(124, 175, 99, 0);
+  }
 }

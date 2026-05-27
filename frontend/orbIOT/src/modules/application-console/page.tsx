@@ -223,16 +223,19 @@ export default function ApplicationConsolePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="border-b border-slate-200/70 pb-6">
+    <div className="app-console-theme space-y-6">
+      <section className="flow-module-hero overflow-hidden rounded-[32px] px-6 py-7 md:px-8">
+        <div className="flow-module-hero__mesh" aria-hidden="true" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-700">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/18 bg-cyan-300/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-200">
               <AppWindowBadge />
               Trusted Clients
             </div>
-            <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-slate-900">Application Access Console</h1>
-            <p className="max-w-[50rem] text-[13px] leading-6 text-slate-500">
+            <h1 className="text-[34px] font-semibold tracking-[-0.055em] text-white md:text-[42px]">
+              Application Access Console
+            </h1>
+            <p className="max-w-[50rem] text-[13px] leading-7 text-slate-300">
               Register the mobile and web clients that are allowed to scan device QR codes, claim devices, and participate in secure device control flows.
             </p>
           </div>
@@ -562,9 +565,9 @@ function UploadField({
 
 function InlineMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[110px]">
+    <div className="min-w-[130px] rounded-[22px] border border-white/10 bg-white/6 px-4 py-3 backdrop-blur-sm">
       <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-slate-900">{value}</p>
+      <p className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-white">{value}</p>
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../middleware/error.middleware";
+import QRCode from "qrcode";
 import {
   ConnectAdminHttpError,
   connectAdminClient,
   getConnectAdminBaseUrl,
 } from "../iot-orchestration/connectAdmin.client";
+import { deviceOnboardingService } from "./deviceOnboarding.service";
+import { uploadDeviceOnboardingQrSvgToS3 } from "./deviceQrAssetStorage.service";
 import type { z } from "zod";
 import { createDeviceSchema, discoveredDeviceSyncSchema, updateDeviceSchema } from "./device.schema";
 import { ensureElevateCatalog } from "./elevateCatalog";
@@ -124,6 +127,24 @@ function stringifyJson(value: Record<string, unknown>) {
   return JSON.stringify(value, null, 2);
 }
 
+async function buildQrSvg(payload: string) {
+  return QRCode.toString(payload, {
+    type: "svg",
+    width: 320,
+    margin: 1,
+    errorCorrectionLevel: "M",
+  });
+}
+
+function parseDate(value: unknown): Date | undefined {
+  if (typeof value !== "string" || !value.trim()) {
+    return undefined;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
 function getDiscoveredDeviceName(serialNumber: string, fallbackName?: string) {
   const explicit = getString(fallbackName);
   if (explicit) {
@@ -181,11 +202,315 @@ async function ensureConnectAdminRegistration(payload: {
   }
 }
 
+async function syncCertificateAssetsFromConnectAdmin(record: {
+  id: string;
+  metadata: string | null;
+  onboardingVersion: number;
+}) {
+  const deviceMetadata = parseJsonObject(record.metadata);
+  const catalog = isPlainObject(deviceMetadata.catalog) ? deviceMetadata.catalog : {};
+  const runtime = isPlainObject(deviceMetadata.runtime) ? deviceMetadata.runtime : {};
+  const serialNumber =
+    getString(catalog.connectAdminDeviceId) ??
+    getString(catalog.deviceId) ??
+    getString(catalog.serialNumber);
+
+  if (!serialNumber) {
+    return;
+  }
+
+  let provisioningStatus: unknown;
+  try {
+    provisioningStatus = await connectAdminClient.getProvisioningStatus(serialNumber);
+  } catch (error) {
+    if (error instanceof ConnectAdminHttpError && error.statusCode === 404) {
+      return;
+    }
+    if (error instanceof ConnectAdminHttpError) {
+      throw new ApiError(error.statusCode, error.message, error.details);
+    }
+    if (isConnectAdminUnavailableError(error)) {
+      throw new ApiError(
+        503,
+        `Connect-admin service is unavailable. Ensure connect-admin is running on ${getConnectAdminBaseUrl()}.`
+      );
+    }
+    throw new ApiError(500, "Failed to fetch provisioning status from connect-admin");
+  }
+
+  if (!isPlainObject(provisioningStatus) || !isPlainObject(provisioningStatus.certificate)) {
+    return;
+  }
+
+  const certificate = provisioningStatus.certificate;
+  const s3Keys = isPlainObject(certificate.s3Keys) ? certificate.s3Keys : null;
+  const certificateId = getString(certificate.certificateId);
+  const certificateArn = getString(certificate.certificateArn);
+  const bucket = getString(certificate.bucket);
+  const region = getString(certificate.region);
+  const certificateKey = getString(s3Keys?.certificate);
+  const privateKeyKey = getString(s3Keys?.privateKey);
+  const publicKeyKey = getString(s3Keys?.publicKey);
+  const metadataKey = getString(s3Keys?.metadata);
+
+  if (
+    !certificateId ||
+    !certificateArn ||
+    !bucket ||
+    !region ||
+    !certificateKey ||
+    !privateKeyKey ||
+    !publicKeyKey ||
+    !metadataKey
+  ) {
+    return;
+  }
+
+  const uploadedAt =
+    parseDate(certificate.lastProvisionedAt) ??
+    parseDate(getString(certificate.generatedAt)) ??
+    new Date();
+  const version = Number.isFinite(Number(certificate.assetVersion))
+    ? Math.max(1, Number(certificate.assetVersion))
+    : 1;
+  const thingId =
+    getString(provisioningStatus.thingId) ??
+    getString(runtime.thingId) ??
+    getString(catalog.thingId) ??
+    "";
+
+  await (prisma as any).$transaction(async (tx: typeof prisma) => {
+    await (tx as any).deviceCertificateAsset.updateMany({
+      where: {
+        deviceId: record.id,
+        status: "active",
+        NOT: {
+          certificateId,
+        },
+      },
+      data: {
+        status: "superseded",
+      },
+    });
+
+    const existingAsset = await (tx as any).deviceCertificateAsset.findFirst({
+      where: {
+        deviceId: record.id,
+        certificateId,
+      },
+    });
+
+    if (existingAsset) {
+      await (tx as any).deviceCertificateAsset.update({
+        where: { id: existingAsset.id },
+        data: {
+          version,
+          thingId,
+          certificateArn,
+          bucket,
+          region,
+          certificateKey,
+          privateKeyKey,
+          publicKeyKey,
+          metadataKey,
+          uploadedAt,
+          status: "active",
+        },
+      });
+    } else {
+      await (tx as any).deviceCertificateAsset.create({
+        data: {
+          deviceId: record.id,
+          version,
+          thingId,
+          certificateId,
+          certificateArn,
+          bucket,
+          region,
+          certificateKey,
+          privateKeyKey,
+          publicKeyKey,
+          metadataKey,
+          uploadedAt,
+          status: "active",
+        },
+      });
+    }
+
+    await tx.device.update({
+      where: { id: record.id },
+      data: {
+        onboardingVersion: Math.max(record.onboardingVersion, version),
+        lastProvisionedAt: uploadedAt,
+      },
+    });
+  });
+}
+
+async function ensureOnboardingQrForDiscoveredDevice(record: {
+  id: string;
+  name: string;
+  serialNumber: string;
+  foreignId: string | null;
+  connectionType: string;
+  project: string;
+  metadata: string | null;
+  onboardingVersion: number;
+}) {
+  const fullRecord = await (prisma as any).device.findUnique({
+    where: { id: record.id },
+    include: {
+      certificateAssets: {
+        where: { status: "active" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+      onboardingQrs: {
+        where: { status: "active" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  const certificateAsset = fullRecord?.certificateAssets?.[0];
+  if (!certificateAsset) {
+    return;
+  }
+
+  const version = Math.max(
+    Number(certificateAsset.version ?? 1),
+    Number(fullRecord?.onboardingVersion ?? record.onboardingVersion ?? 1),
+    1
+  );
+
+  const currentQr = fullRecord?.onboardingQrs?.[0];
+  if (currentQr && Number(currentQr.version) === version) {
+    return;
+  }
+
+  const metadata = parseJsonObject(fullRecord?.metadata);
+  const catalog = isPlainObject(metadata.catalog) ? metadata.catalog : {};
+  const payloadObject = {
+    version,
+    generatedAt: new Date().toISOString(),
+    source: "discovered-sync",
+    device: {
+      id: record.id,
+      name: record.name,
+      serialNumber: record.serialNumber,
+      status: "active",
+      project: record.project,
+      connectionType: record.connectionType,
+    },
+    thing: {
+      id: certificateAsset.thingId || record.foreignId,
+      type: getString(catalog.deviceType) ?? null,
+      region: certificateAsset.region,
+    },
+    certificates: {
+      bucket: certificateAsset.bucket,
+      certificateId: certificateAsset.certificateId,
+      certificateArn: certificateAsset.certificateArn,
+      documents: {
+        certificate: `s3://${certificateAsset.bucket}/${certificateAsset.certificateKey}`,
+        privateKey: `s3://${certificateAsset.bucket}/${certificateAsset.privateKeyKey}`,
+        publicKey: `s3://${certificateAsset.bucket}/${certificateAsset.publicKeyKey}`,
+        metadata: `s3://${certificateAsset.bucket}/${certificateAsset.metadataKey}`,
+      },
+    },
+    onboarding: {
+      registrationMetadata: {
+        onboardingVersion: version,
+        thingId: certificateAsset.thingId || record.foreignId,
+        connectAdminDeviceId:
+          getString(catalog.connectAdminDeviceId) ?? record.serialNumber,
+        discovered: true,
+      },
+    },
+  };
+
+  const qrSvg = await buildQrSvg(JSON.stringify(payloadObject));
+  const qrAsset = await uploadDeviceOnboardingQrSvgToS3({
+    deviceRecordId: record.id,
+    thingId: certificateAsset.thingId || record.foreignId || record.serialNumber,
+    version,
+    svg: qrSvg,
+  });
+
+  const onboardingMetadata = isPlainObject(metadata.onboarding) ? metadata.onboarding : {};
+  const nextMetadata = {
+    ...metadata,
+    onboarding: {
+      ...onboardingMetadata,
+      status: "active",
+      version,
+      generatedAt: qrAsset.uploadedAt,
+      qr: {
+        bucket: qrAsset.bucket,
+        region: qrAsset.region,
+        objectKey: qrAsset.objectKey,
+        checksum: qrAsset.checksum,
+        version,
+        uploadedAt: qrAsset.uploadedAt,
+      },
+    },
+  };
+
+  await (prisma as any).$transaction(async (tx: typeof prisma) => {
+    await (tx as any).deviceOnboardingQrAsset.updateMany({
+      where: { deviceId: record.id, status: "active" },
+      data: { status: "archived" },
+    });
+
+    await (tx as any).deviceOnboardingQrAsset.create({
+      data: {
+        deviceId: record.id,
+        certificateAssetId: certificateAsset.id,
+        version,
+        bucket: qrAsset.bucket,
+        region: qrAsset.region,
+        objectKey: qrAsset.objectKey,
+        contentType: qrAsset.contentType,
+        checksum: qrAsset.checksum,
+        payload: stringifyJson(payloadObject),
+        generatedAt: new Date(qrAsset.uploadedAt),
+      },
+    });
+
+    await tx.device.update({
+      where: { id: record.id },
+      data: {
+        metadata: stringifyJson(nextMetadata),
+        onboardingVersion: version,
+        lastQrGeneratedAt: new Date(qrAsset.uploadedAt),
+      },
+    });
+  });
+}
+
 export const deviceService = {
   list: () => prisma.device.findMany({ orderBy: { createdAt: "desc" } }),
-  getById: (id: string) => prisma.device.findUnique({ where: { id } }),
-  create: (data: CreateDeviceInput) => prisma.device.create({ data }),
-  update: (id: string, data: UpdateDeviceInput) => prisma.device.update({ where: { id }, data }),
+  getById: (id: string) =>
+    (prisma as any).device.findUnique({
+      where: { id },
+      include: {
+        certificateAssets: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+        onboardingQrs: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+        provisioningAudits: {
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        },
+      },
+    }),
+  create: (data: CreateDeviceInput) => deviceOnboardingService.create(data),
+  update: (id: string, data: UpdateDeviceInput) => deviceOnboardingService.update(id, data),
   async remove(id: string) {
     const device = await prisma.device.findUnique({ where: { id } });
     if (!device) {
@@ -311,6 +636,23 @@ export const deviceService = {
       thingId: getString(data.thingId) ?? getString(record.foreignId),
       channels: getString(catalogMetadata.channels),
       firmwareVersion: getString(data.firmwareVersion),
+    });
+
+    await syncCertificateAssetsFromConnectAdmin({
+      id: record.id,
+      metadata: record.metadata,
+      onboardingVersion: record.onboardingVersion ?? 0,
+    });
+
+    await ensureOnboardingQrForDiscoveredDevice({
+      id: record.id,
+      name: record.name,
+      serialNumber: record.serialNumber,
+      foreignId: record.foreignId,
+      connectionType: record.connectionType,
+      project: record.project,
+      metadata: record.metadata,
+      onboardingVersion: record.onboardingVersion ?? 0,
     });
 
     return record;

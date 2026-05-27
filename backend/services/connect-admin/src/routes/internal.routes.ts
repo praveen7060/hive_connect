@@ -15,6 +15,17 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function logInternal(event: string, details: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      scope: 'connect-admin.internal',
+      event,
+      timestamp: new Date().toISOString(),
+      ...details
+    })
+  )
+}
+
 function normalizeIdentifier(input: string, fallback: string) {
   const normalized = input
     .trim()
@@ -39,6 +50,29 @@ function generateThingTypeName(deviceType: string) {
   const normalizedType = normalizeIdentifier(deviceType.toLowerCase(), 'single')
   const generated = `ccms-${normalizedType}`
   return generated.slice(0, 128) || FALLBACK_THING_TYPE
+}
+
+function parsePositiveInt(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return undefined
+  }
+
+  const parsed = Number.parseInt(String(value), 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined
+  }
+
+  return parsed
+}
+
+async function acquireDeviceLock<T>(
+  key: string,
+  operation: (tx: typeof prisma) => Promise<T>
+) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', key)
+    return operation(tx as typeof prisma)
+  })
 }
 
 function parseAttributes(value: unknown) {
@@ -74,6 +108,61 @@ function normalizeSwitchNo(input: unknown) {
   return digits ? `S${digits}` : value
 }
 
+function buildProvisioningSummaryFromDevice(device: {
+  thingId: string | null
+  certificateId?: string | null
+  certificateArn?: string | null
+  certificateBucket?: string | null
+  certificateRegion?: string | null
+  certificateVersion?: number | null
+  certificateKey?: string | null
+  privateKeyKey?: string | null
+  publicKeyKey?: string | null
+  metadataKey?: string | null
+  lastProvisionedAt?: Date | null
+}) {
+  if (
+    !device.thingId ||
+    !device.certificateId ||
+    !device.certificateArn ||
+    !device.certificateBucket ||
+    !device.certificateRegion ||
+    !device.certificateKey ||
+    !device.privateKeyKey ||
+    !device.publicKeyKey ||
+    !device.metadataKey
+  ) {
+    return null
+  }
+
+  return {
+    thingName: device.thingId,
+    thingArn: null,
+    thingTypeName: null,
+    certificateId: device.certificateId,
+    certificateArn: device.certificateArn,
+    certificateStatus: 'ACTIVE',
+    awsAccountId: device.certificateArn.split(':')[4] || null,
+    region: device.certificateRegion,
+    bucket: device.certificateBucket,
+    assetVersion: device.certificateVersion ?? 1,
+    policyAttached: null,
+    s3Keys: {
+      certificate: device.certificateKey,
+      privateKey: device.privateKeyKey,
+      publicKey: device.publicKeyKey,
+      metadata: device.metadataKey
+    },
+    generatedAt: device.lastProvisionedAt?.toISOString() ?? null,
+    verification: {
+      thingExists: true,
+      certificateExists: true,
+      certificateAttachedToThing: true,
+      s3ObjectsStored: true
+    }
+  }
+}
+
 router.post('/devices/onboard', async (req, res) => {
   try {
     const body = req.body || {}
@@ -84,6 +173,7 @@ router.post('/devices/onboard', async (req, res) => {
     const policyName = typeof body.policyName === 'string' ? body.policyName.trim() : undefined
     const s3Prefix = typeof body.s3Prefix === 'string' ? body.s3Prefix.trim() : undefined
     const channels = typeof body.channels === 'string' ? body.channels.trim() : undefined
+    const assetVersion = parsePositiveInt(body.assetVersion)
     const forceProvision = Boolean(body.forceProvision)
 
     if (!deviceId) {
@@ -116,58 +206,122 @@ router.post('/devices/onboard', async (req, res) => {
       })
     }
 
-    const existingDevice = await prisma.device.findUnique({ where: { deviceId } })
-    if (
-      existingDevice?.thingId &&
-      !forceProvision &&
-      thingNameInput &&
-      existingDevice.thingId !== thingName
-    ) {
-      return res.status(409).json({
-        error: 'Device is already provisioned with a different thingId',
-        existingThingId: existingDevice.thingId
-      })
-    }
+    const { existingDevice, device, provisioning, reused } = await acquireDeviceLock(
+      `internal:onboard:${deviceId}`,
+      async (tx) => {
+        const orm = tx as any
+        const current = await orm.device.findUnique({ where: { deviceId } })
+        if (
+          current?.thingId &&
+          !forceProvision &&
+          thingNameInput &&
+          current.thingId !== thingName
+        ) {
+          throw new Error(JSON.stringify({
+            statusCode: 409,
+            error: 'Device is already provisioned with a different thingId',
+            existingThingId: current.thingId
+          }))
+        }
 
-    if (existingDevice?.thingId && !forceProvision) {
-      return res.json({
-        success: true,
-        reused: true,
-        device: existingDevice,
-        provisioning: null
-      })
-    }
+        if (current?.thingId && !forceProvision) {
+          const reusedDevice = await orm.device.update({
+            where: { deviceId },
+            data: {
+              deviceType,
+              ...(channels ? { channels } : {})
+            }
+          })
 
-    const provisioning = await provisionThingAndStoreCertificates({
-      thingName,
-      thingTypeName,
-      policyName,
-      attributes,
-      s3Prefix: effectiveS3Prefix
-    })
+          return {
+            existingDevice: current,
+            device: reusedDevice,
+            provisioning: buildProvisioningSummaryFromDevice(reusedDevice),
+            reused: true
+          }
+        }
 
-    const device = await prisma.device.upsert({
-      where: { deviceId },
-      update: {
-        deviceType,
-        thingId: provisioning.thingName,
-        ...(channels ? { channels } : {})
-      },
-      create: {
-        deviceId,
-        deviceType,
-        thingId: provisioning.thingName,
-        ...(channels ? { channels } : {})
+        const nextProvisioning = await provisionThingAndStoreCertificates({
+          deviceId,
+          thingName,
+          thingTypeName,
+          policyName,
+          attributes,
+          s3Prefix: effectiveS3Prefix,
+          assetVersion
+        })
+
+        const nextDevice = await orm.device.upsert({
+          where: { deviceId },
+          update: {
+            deviceType,
+            thingId: nextProvisioning.thingName,
+            certificateId: nextProvisioning.certificateId,
+            certificateArn: nextProvisioning.certificateArn,
+            certificateBucket: nextProvisioning.bucket,
+            certificateRegion: nextProvisioning.region,
+            certificateVersion: nextProvisioning.assetVersion,
+            certificateKey: nextProvisioning.s3Keys.certificate,
+            privateKeyKey: nextProvisioning.s3Keys.privateKey,
+            publicKeyKey: nextProvisioning.s3Keys.publicKey,
+            metadataKey: nextProvisioning.s3Keys.metadata,
+            lastProvisionedAt: new Date(nextProvisioning.generatedAt),
+            ...(channels ? { channels } : {})
+          },
+          create: {
+            deviceId,
+            deviceType,
+            thingId: nextProvisioning.thingName,
+            certificateId: nextProvisioning.certificateId,
+            certificateArn: nextProvisioning.certificateArn,
+            certificateBucket: nextProvisioning.bucket,
+            certificateRegion: nextProvisioning.region,
+            certificateVersion: nextProvisioning.assetVersion,
+            certificateKey: nextProvisioning.s3Keys.certificate,
+            privateKeyKey: nextProvisioning.s3Keys.privateKey,
+            publicKeyKey: nextProvisioning.s3Keys.publicKey,
+            metadataKey: nextProvisioning.s3Keys.metadata,
+            lastProvisionedAt: new Date(nextProvisioning.generatedAt),
+            ...(channels ? { channels } : {})
+          }
+        })
+
+        return {
+          existingDevice: current,
+          device: nextDevice,
+          provisioning: nextProvisioning,
+          reused: false
+        }
       }
+    )
+
+    logInternal('device_onboarded', {
+      deviceId,
+      thingId: device.thingId,
+      reused,
+      certificateId: provisioning?.certificateId ?? null
     })
 
     return res.status(existingDevice ? 200 : 201).json({
       success: true,
-      reused: false,
+      reused,
       device,
       provisioning
     })
   } catch (error) {
+    if (error instanceof Error) {
+      try {
+        const parsed = JSON.parse(error.message)
+        if (parsed && typeof parsed === 'object' && parsed.statusCode) {
+          return res.status(Number(parsed.statusCode)).json({
+            error: parsed.error || 'Request failed',
+            existingThingId: parsed.existingThingId
+          })
+        }
+      } catch {
+        // noop
+      }
+    }
     console.error('Internal onboarding failed:', error)
     return res.status(500).json({
       error: error instanceof Error ? error.message : 'Internal onboarding failed'
@@ -195,26 +349,28 @@ router.post('/devices/register', async (req, res) => {
       return res.status(400).json({ error: 'deviceType must be a non-empty string' })
     }
 
-    const device = await prisma.device.upsert({
-      where: { deviceId },
-      update: {
-        deviceType,
-        thingId: thingId || null,
-        ...(channels ? { channels } : {}),
-        ...(firmwareVersion ? { firmwareVersion } : {}),
-        ...(ipAddress ? { ipAddress } : {}),
-        ...(macAddress ? { macAddress } : {})
-      },
-      create: {
-        deviceId,
-        deviceType,
-        thingId: thingId || null,
-        ...(channels ? { channels } : {}),
-        ...(firmwareVersion ? { firmwareVersion } : {}),
-        ...(ipAddress ? { ipAddress } : {}),
-        ...(macAddress ? { macAddress } : {})
-      }
-    })
+    const device = await acquireDeviceLock(`internal:register:${deviceId}`, async (tx) =>
+      (tx as any).device.upsert({
+        where: { deviceId },
+        update: {
+          deviceType,
+          ...(thingId ? { thingId } : {}),
+          ...(channels ? { channels } : {}),
+          ...(firmwareVersion ? { firmwareVersion } : {}),
+          ...(ipAddress ? { ipAddress } : {}),
+          ...(macAddress ? { macAddress } : {})
+        },
+        create: {
+          deviceId,
+          deviceType,
+          thingId: thingId || null,
+          ...(channels ? { channels } : {}),
+          ...(firmwareVersion ? { firmwareVersion } : {}),
+          ...(ipAddress ? { ipAddress } : {}),
+          ...(macAddress ? { macAddress } : {})
+        }
+      })
+    )
 
     return res.status(201).json({
       success: true,
@@ -247,9 +403,24 @@ router.get('/devices/:deviceId', async (req, res) => {
 
 router.get('/devices/:deviceId/provisioning', async (req, res) => {
   try {
-    const device = await prisma.device.findUnique({
+    const device = await (prisma as any).device.findUnique({
       where: { deviceId: req.params.deviceId },
-      select: { deviceId: true, thingId: true, deviceType: true, updatedAt: true }
+      select: {
+        deviceId: true,
+        thingId: true,
+        deviceType: true,
+        certificateId: true,
+        certificateArn: true,
+        certificateBucket: true,
+        certificateRegion: true,
+        certificateVersion: true,
+        certificateKey: true,
+        privateKeyKey: true,
+        publicKeyKey: true,
+        metadataKey: true,
+        lastProvisionedAt: true,
+        updatedAt: true
+      }
     })
 
     if (!device) {
@@ -262,6 +433,22 @@ router.get('/devices/:deviceId/provisioning', async (req, res) => {
       thingId: device.thingId,
       deviceType: device.deviceType,
       status: device.thingId ? 'PROVISIONED' : 'PENDING',
+      certificate: device.certificateId
+        ? {
+            certificateId: device.certificateId,
+            certificateArn: device.certificateArn,
+            bucket: device.certificateBucket,
+            region: device.certificateRegion,
+            assetVersion: device.certificateVersion,
+            s3Keys: {
+              certificate: device.certificateKey,
+              privateKey: device.privateKeyKey,
+              publicKey: device.publicKeyKey,
+              metadata: device.metadataKey
+            },
+            lastProvisionedAt: device.lastProvisionedAt
+          }
+        : null,
       updatedAt: device.updatedAt
     })
   } catch (error) {
@@ -289,15 +476,47 @@ router.post('/devices/:deviceId/documents', async (req, res) => {
     }
 
     const hasAtLeastOnePath = Object.values(documentPaths).some(Boolean)
-    const device = await prisma.device.findUnique({
+    const device = await (prisma as any).device.findUnique({
       where: { deviceId },
-      select: { deviceId: true, thingId: true }
+      select: {
+        deviceId: true,
+        thingId: true,
+        certificateBucket: true,
+        certificateKey: true,
+        privateKeyKey: true,
+        publicKeyKey: true,
+        metadataKey: true
+      }
     })
 
-    const thingName = thingNameInput || device?.thingId || ''
+    const deviceRecord = device as any
+
+    if (!documentPaths.certificate && deviceRecord?.certificateBucket && deviceRecord?.certificateKey) {
+      documentPaths.certificate = `s3://${deviceRecord.certificateBucket}/${deviceRecord.certificateKey}`
+    }
+    if (!documentPaths.privateKey && deviceRecord?.certificateBucket && deviceRecord?.privateKeyKey) {
+      documentPaths.privateKey = `s3://${deviceRecord.certificateBucket}/${deviceRecord.privateKeyKey}`
+    }
+    if (!documentPaths.publicKey && deviceRecord?.certificateBucket && deviceRecord?.publicKeyKey) {
+      documentPaths.publicKey = `s3://${deviceRecord.certificateBucket}/${deviceRecord.publicKeyKey}`
+    }
+    if (!documentPaths.metadata && deviceRecord?.certificateBucket && deviceRecord?.metadataKey) {
+      documentPaths.metadata = `s3://${deviceRecord.certificateBucket}/${deviceRecord.metadataKey}`
+    }
+
+    const thingName = thingNameInput || deviceRecord?.thingId || ''
     if (!thingName && !hasAtLeastOnePath) {
       return res.status(404).json({
         error: 'Device or document paths not found'
+      })
+    }
+
+    const resolvedPathCount = Object.values(documentPaths).filter(Boolean).length
+    if (!resolvedPathCount) {
+      return res.status(409).json({
+        error: 'Device has not been provisioned with certificate assets yet',
+        deviceId,
+        thingId: thingName || null
       })
     }
 
@@ -305,6 +524,16 @@ router.post('/devices/:deviceId/documents', async (req, res) => {
       thingName: thingName || undefined,
       documentPaths
     })
+
+    const hasAnyDocument = Object.values(result.documents).some((value) => Boolean(value))
+    if (!hasAnyDocument) {
+      return res.status(404).json({
+        error: 'Certificate assets were not found in S3 for this device',
+        deviceId,
+        thingId: result.thingName,
+        sources: result.sources
+      })
+    }
 
     return res.json({
       success: true,
@@ -354,9 +583,21 @@ router.post('/devices/:deviceId/deprovision', async (req, res) => {
         await prisma.device.delete({ where: { deviceId } })
         deviceAction = 'deleted'
       } else if (device.thingId) {
-        await prisma.device.update({
+        await (prisma as any).device.update({
           where: { deviceId },
-          data: { thingId: null }
+          data: {
+            thingId: null,
+            certificateId: null,
+            certificateArn: null,
+            certificateBucket: null,
+            certificateRegion: null,
+            certificateVersion: null,
+            certificateKey: null,
+            privateKeyKey: null,
+            publicKeyKey: null,
+            metadataKey: null,
+            lastProvisionedAt: null
+          }
         })
         deviceAction = 'detached'
       } else {

@@ -11,8 +11,10 @@ router.post("/devices/:deviceId/publish", iotController.publishToDevice);
 router.post("/devices/:deviceId/documents", iotController.getDeviceDocuments);
 router.post("/topics/subscribe", iotController.subscribeTopics);
 router.get("/catalog/devices/:id/profile", iotController.getCatalogProfile);
+router.get("/catalog/devices/:id/capabilities", iotController.getCatalogCapabilities);
 router.post("/catalog/devices/:id/provision", iotController.provisionCatalogDevice);
 router.post("/catalog/devices/:id/commands/:commandKey", iotController.executeCatalogCommand);
 router.post("/catalog/devices/:id/subscriptions", iotController.subscribeCatalogDevice);
+router.post("/telemetry/ingest", iotController.ingestTelemetry);
 
 export default router;

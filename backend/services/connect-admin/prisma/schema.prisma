@@ -15,10 +15,20 @@ model Device {
   deviceId        String   @unique
   deviceType      String   @default("SINGLE") // 'SINGLE', 'SWITCH_4CH', 'DONGLE_2CH', 'SMART_METER'
   channels        String?  // For dongle: "4S1F", "2C0F", etc.
-  thingId         String?
+  thingId         String?  @unique
   ipAddress       String?
   macAddress      String?
   firmwareVersion String?
+  certificateId   String?  @unique
+  certificateArn  String?
+  certificateBucket String?
+  certificateRegion String?
+  certificateVersion Int?
+  certificateKey  String?
+  privateKeyKey   String?
+  publicKeyKey    String?
+  metadataKey     String?
+  lastProvisionedAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @default(now()) @updatedAt
 

@@ -92,6 +92,91 @@ export interface IotDocumentsResponse {
   };
 }
 
+export interface CatalogCommandDefinition {
+  key: string;
+  messageId: string;
+  name: string;
+  commandType?: string | null;
+  messageType?: string | null;
+  policyType?: string | null;
+  communicationMethod?: string | null;
+  topicTemplate?: string | null;
+  subTopic?: string | null;
+  topicUnique?: boolean;
+  isPayloadCentric?: boolean;
+  payloadTemplate?: Record<string, unknown>;
+  confirmationPayloadTemplate?: Record<string, unknown>;
+}
+
+export interface CatalogProfileResponse {
+  device: {
+    id: string;
+    name: string;
+    serialNumber?: string | null;
+    connectionType?: string | null;
+    project?: string | null;
+    status?: string | null;
+  };
+  item?: {
+    id: string;
+    name: string;
+    itemCode?: string | null;
+    itemType?: string | null;
+  } | null;
+  communication?: {
+    id: string;
+    name: string;
+    protocol?: string | null;
+    version?: string | null;
+    centric?: string | null;
+    communicationMethod?: string | null;
+    transport?: string | null;
+    format?: string | null;
+  } | null;
+  thingId?: string | null;
+  thingName?: string | null;
+  connectAdminDeviceId: string;
+  provisioning?: {
+    channels?: string | null;
+    thingName?: string | null;
+    deviceType?: string | null;
+  } | null;
+  commands: CatalogCommandDefinition[];
+  messages: Array<{
+    id: string;
+    name: string;
+    topic: string;
+    messageType?: string | null;
+    commandType?: string | null;
+    policyType?: string | null;
+    communicationMethod?: string | null;
+    topicUnique?: boolean;
+    isPayloadCentric?: boolean;
+    requestPayloadFormat?: string | null;
+    responsePayloadFormat?: string | null;
+  }>;
+}
+
+export interface ExecuteCatalogCommandInput {
+  messageId?: string;
+  payload?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
+  topic?: string;
+  subTopic?: string;
+}
+
+export interface IotControlRequest {
+  status: string;
+  switchNo?: string | number;
+  channel?: string | number;
+  switch_no?: string | number;
+}
+
+export interface IotPublishRequest {
+  subTopic: string;
+  payload: Record<string, unknown>;
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
@@ -267,14 +352,35 @@ export const deviceInventoryApi = {
   iot: {
     provisionThing: (payload: IotProvisionRequest) =>
       apiRequest<IotProvisionResponse>("/iot/things/provision", "POST", payload),
+    getDevice: (deviceId: string) =>
+      apiRequest<any>(`/iot/devices/${encodeURIComponent(deviceId)}`, "GET"),
     getProvisioningStatus: (deviceId: string) =>
       apiRequest<any>(`/iot/devices/${encodeURIComponent(deviceId)}/provisioning`, "GET"),
+    controlDevice: (deviceId: string, payload: IotControlRequest) =>
+      apiRequest<any>(`/iot/devices/${encodeURIComponent(deviceId)}/control`, "POST", payload),
+    publishToDevice: (deviceId: string, payload: IotPublishRequest) =>
+      apiRequest<any>(`/iot/devices/${encodeURIComponent(deviceId)}/publish`, "POST", payload),
     getDeviceDocuments: (deviceId: string, payload: { thingName?: string; documentPaths?: IotDocumentPaths }) =>
       apiRequest<IotDocumentsResponse>(
         `/iot/devices/${encodeURIComponent(deviceId)}/documents`,
         "POST",
         payload,
         MQTT_DOCS_TIMEOUT_MS
+      ),
+    getCatalogProfile: (deviceId: string) =>
+      apiRequest<CatalogProfileResponse>(
+        `/iot/catalog/devices/${encodeURIComponent(deviceId)}/profile`,
+        "GET"
+      ),
+    executeCatalogCommand: (
+      deviceId: string,
+      commandKey: string,
+      payload: ExecuteCatalogCommandInput
+    ) =>
+      apiRequest<any>(
+        `/iot/catalog/devices/${encodeURIComponent(deviceId)}/commands/${encodeURIComponent(commandKey)}`,
+        "POST",
+        payload
       ),
   },
   applicationConsole: {

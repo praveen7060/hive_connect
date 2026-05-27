@@ -24,14 +24,18 @@ import {
   PutObjectCommand,
   S3Client
 } from '@aws-sdk/client-s3'
+import { X509Certificate, createHash, createPrivateKey, createPublicKey } from 'crypto'
 import { ENV } from '../config/env'
+import { ensurePrivateVersionedBucket } from './s3-bucket-setup.service'
 
 type ProvisionThingInput = {
+  deviceId?: string
   thingName: string
   thingTypeName?: string
   policyName?: string
   attributes?: Record<string, string>
   s3Prefix?: string
+  assetVersion?: number
 }
 
 type ProvisionThingOutput = {
@@ -44,6 +48,7 @@ type ProvisionThingOutput = {
   awsAccountId: string | null
   region: string
   bucket: string
+  assetVersion: number
   policyAttached: string | null
   s3Keys: {
     certificate: string
@@ -51,6 +56,7 @@ type ProvisionThingOutput = {
     publicKey: string
     metadata: string
   }
+  generatedAt: string
   verification: {
     thingExists: boolean
     certificateExists: boolean
@@ -231,6 +237,59 @@ function normalizePrefix(prefix?: string) {
   return prefix.replace(/^\/+|\/+$/g, '')
 }
 
+function sanitizeSegment(value: string) {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-')
+}
+
+function resolveCertificateBaseKey(input: ProvisionThingInput, certificateId: string) {
+  const basePrefix = normalizePrefix(input.s3Prefix)
+  const version = Number.isFinite(input.assetVersion) && (input.assetVersion ?? 0) > 0
+    ? Math.floor(input.assetVersion ?? 1)
+    : 1
+  const safeDeviceId = sanitizeSegment(input.deviceId?.trim() || input.thingName)
+  const safeThingName = sanitizeSegment(input.thingName)
+  const timePart = new Date().toISOString().replace(/[:.]/g, '-')
+
+  return {
+    version,
+    generatedAt: new Date().toISOString(),
+    keyPrefix: [
+      basePrefix || 'device-certificates',
+      safeDeviceId,
+      safeThingName,
+      `v${version}`,
+      `${timePart}-${certificateId}`
+    ].filter(Boolean).join('/')
+  }
+}
+
+function validateCertificateMaterial(certificatePem: string, privateKey: string, publicKey: string) {
+  try {
+    const certificate = new X509Certificate(certificatePem)
+    createPrivateKey(privateKey)
+    createPublicKey(publicKey)
+
+    return {
+      subject: certificate.subject,
+      issuer: certificate.issuer,
+      validFrom: certificate.validFrom,
+      validTo: certificate.validTo,
+      checksum: createHash('sha256').update(certificatePem).digest('hex')
+    }
+  } catch (error) {
+    throw new Error(
+      `Generated certificate material failed validation: ${error instanceof Error ? error.message : 'unknown error'}`
+    )
+  }
+}
+
+function buildTagging(tags: Record<string, string | number | null | undefined>) {
+  return Object.entries(tags)
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&')
+}
+
 function getCertificateIdFromArn(certificateArn: string) {
   const parts = certificateArn.split('/')
   const certificateId = parts[parts.length - 1]?.trim()
@@ -392,6 +451,12 @@ export async function provisionThingAndStoreCertificates(
     credentials
   })
 
+  await ensurePrivateVersionedBucket({
+    client: s3,
+    bucket: config.certBucketName,
+    region: config.region
+  })
+
   await ensureThingType(iot, thingTypeName)
   await ensureThing(iot, thingName, input.attributes, thingTypeName ?? undefined)
 
@@ -411,6 +476,8 @@ export async function provisionThingAndStoreCertificates(
     throw new Error('AWS IoT did not return complete certificate material')
   }
 
+  const certificateValidation = validateCertificateMaterial(certificatePem, privateKey, publicKey)
+
   await iot.send(
     new AttachThingPrincipalCommand({
       thingName,
@@ -428,59 +495,110 @@ export async function provisionThingAndStoreCertificates(
     )
   }
 
-  const basePrefix = normalizePrefix(input.s3Prefix)
-  const baseKey = [basePrefix, thingName, certificateId].filter(Boolean).join('/')
+  const { keyPrefix, version, generatedAt } = resolveCertificateBaseKey(input, certificateId)
 
-  const certificateKey = `${baseKey}/certificate.pem.crt`
-  const privateKeyKey = `${baseKey}/private.pem.key`
-  const publicKeyKey = `${baseKey}/public.pem.key`
-  const metadataKey = `${baseKey}/metadata.json`
+  const certificateKey = `${keyPrefix}/certificate.pem.crt`
+  const privateKeyKey = `${keyPrefix}/private.pem.key`
+  const publicKeyKey = `${keyPrefix}/public.pem.key`
+  const metadataKey = `${keyPrefix}/metadata.json`
+  const objectTagging = buildTagging({
+    asset: 'device-certificate',
+    deviceId: input.deviceId,
+    thingId: thingName,
+    version,
+    certificateId
+  })
 
   await Promise.all([
-    s3.send(
+    runWithRetries(() =>
+      s3.send(
       new PutObjectCommand({
         Bucket: config.certBucketName,
         Key: certificateKey,
         Body: certificatePem,
-        ContentType: 'application/x-pem-file'
+        ContentType: 'application/x-pem-file',
+        ServerSideEncryption: 'AES256',
+        Metadata: {
+          'device-id': input.deviceId?.trim() || thingName,
+          'thing-id': thingName,
+          'certificate-id': certificateId,
+          version: String(version),
+          checksum: certificateValidation.checksum,
+          'generated-at': generatedAt
+        },
+        Tagging: objectTagging
       })
-    ),
-    s3.send(
+    )),
+    runWithRetries(() =>
+      s3.send(
       new PutObjectCommand({
         Bucket: config.certBucketName,
         Key: privateKeyKey,
         Body: privateKey,
-        ContentType: 'application/x-pem-file'
+        ContentType: 'application/x-pem-file',
+        ServerSideEncryption: 'AES256',
+        Metadata: {
+          'device-id': input.deviceId?.trim() || thingName,
+          'thing-id': thingName,
+          'certificate-id': certificateId,
+          version: String(version),
+          'generated-at': generatedAt
+        },
+        Tagging: objectTagging
       })
-    ),
-    s3.send(
+    )),
+    runWithRetries(() =>
+      s3.send(
       new PutObjectCommand({
         Bucket: config.certBucketName,
         Key: publicKeyKey,
         Body: publicKey,
-        ContentType: 'application/x-pem-file'
+        ContentType: 'application/x-pem-file',
+        ServerSideEncryption: 'AES256',
+        Metadata: {
+          'device-id': input.deviceId?.trim() || thingName,
+          'thing-id': thingName,
+          'certificate-id': certificateId,
+          version: String(version),
+          'generated-at': generatedAt
+        },
+        Tagging: objectTagging
       })
-    ),
-    s3.send(
+    )),
+    runWithRetries(() =>
+      s3.send(
       new PutObjectCommand({
         Bucket: config.certBucketName,
         Key: metadataKey,
         Body: JSON.stringify(
           {
             thingName,
+            deviceId: input.deviceId?.trim() || null,
             thingTypeName,
             certificateArn,
             certificateId,
             awsAccountId: certificateArn.split(':')[4] || null,
             policyName: policyName || null,
-            generatedAt: new Date().toISOString()
+            assetVersion: version,
+            generatedAt,
+            validation: certificateValidation
           },
           null,
           2
         ),
-        ContentType: 'application/json'
+        ContentType: 'application/json',
+        ServerSideEncryption: 'AES256',
+        Metadata: {
+          'device-id': input.deviceId?.trim() || thingName,
+          'thing-id': thingName,
+          'certificate-id': certificateId,
+          version: String(version),
+          checksum: certificateValidation.checksum,
+          'generated-at': generatedAt
+        },
+        Tagging: objectTagging
       })
-    )
+    ))
   ])
 
   const [describedThing, principals, describedCertificate] = await Promise.all([
@@ -553,6 +671,7 @@ export async function provisionThingAndStoreCertificates(
     awsAccountId,
     region: config.region,
     bucket: config.certBucketName,
+    assetVersion: version,
     policyAttached: policyName || null,
     s3Keys: {
       certificate: certificateKey,
@@ -560,6 +679,7 @@ export async function provisionThingAndStoreCertificates(
       publicKey: publicKeyKey,
       metadata: metadataKey
     },
+    generatedAt,
     verification: {
       thingExists: true,
       certificateExists: true,

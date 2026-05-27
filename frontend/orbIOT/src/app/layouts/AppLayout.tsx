@@ -1,6 +1,13 @@
+import { Activity, Leaf, ShieldCheck } from "lucide-react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../../shared/components/sidebar/Sidebar";
 import { NAV_ITEMS } from "../router/navigation";
+
+const statusChips = [
+  { label: "Fleet", value: "Connected", icon: Activity },
+  { label: "Policy", value: "Protected", icon: ShieldCheck },
+  { label: "Mode", value: "Green", icon: Leaf },
+];
 
 export default function AppLayout() {
   const location = useLocation();
@@ -8,39 +15,59 @@ export default function AppLayout() {
     NAV_ITEMS.find((item) => item.path === location.pathname) ??
     NAV_ITEMS.find((item) => location.pathname.startsWith(item.path));
   const isDeviceInventoryRoute = location.pathname === "/devices";
-  const showShellHeader = !isDeviceInventoryRoute;
 
   return (
-    <div className="min-h-screen bg-[#eaf3ff] text-slate-900">
-      <div className="flex min-h-screen">
+    <div className="min-h-screen bg-[var(--iotiq-bg)] text-[var(--iotiq-text)]">
+      <div className="flex min-h-screen w-full">
         <Sidebar />
 
         <main className="flex min-h-screen flex-1 flex-col overflow-hidden">
-          {showShellHeader && (
-            <header className="border-b border-blue-200/70 bg-[#f4f9ff]/95 px-6 py-5 backdrop-blur-sm">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div className="max-w-4xl">
-                  <p className="expo-eyebrow text-slate-500">IOTIQ Platform</p>
-                  <h2 className="expo-page-title mt-2 text-slate-950">
-                    {activeItem?.label ?? "IOTIQ Console"}
-                  </h2>
-                  <p className="expo-body mt-2.5 max-w-3xl text-slate-500">
-                    {activeItem?.description ??
-                      "Select a section from the sidebar to navigate through the platform."}
-                  </p>
-                </div>
-
-                <div className="expo-note rounded-full border border-blue-200 bg-blue-50 px-4 py-3 text-blue-700">
-                  Professional control workspace
-                </div>
+          <header
+            className={[
+              "border-b border-[var(--iotiq-border)] bg-white/88 backdrop-blur",
+              isDeviceInventoryRoute ? "px-3 py-3 md:px-4" : "px-4 py-4 md:px-6",
+            ].join(" ")}
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-4xl">
+                <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--iotiq-muted)]">
+                  IOTIQ Platform
+                </p>
+                <h1 className="mt-2 text-[26px] font-medium tracking-[-0.045em] text-[#161616] md:text-[32px]">
+                  {activeItem?.label ?? "Operations"}
+                </h1>
+                <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[var(--iotiq-muted)]">
+                  {activeItem?.description ??
+                    "Monitor devices, applications, and control routes from a single operational workspace."}
+                </p>
               </div>
-            </header>
-          )}
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {statusChips.map((chip) => {
+                  const Icon = chip.icon;
+                  return (
+                    <div
+                      key={chip.label}
+                      className="rounded-2xl border border-[var(--iotiq-border)] bg-[var(--iotiq-surface)] px-3 py-3"
+                    >
+                      <div className="flex items-center gap-2 text-[var(--iotiq-primary)]">
+                        <Icon size={14} />
+                        <span className="text-[10px] font-medium uppercase tracking-[0.16em]">
+                          {chip.label}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[14px] font-medium text-[#161616]">{chip.value}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </header>
 
           <div
             className={[
               "flex-1 overflow-y-auto",
-              isDeviceInventoryRoute ? "px-1 py-1 md:px-2 md:py-2" : "px-7 py-7",
+              isDeviceInventoryRoute ? "px-0 py-1 md:px-0 md:py-2" : "px-3 py-3 md:px-5 md:py-5",
             ].join(" ")}
           >
             <Outlet />

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft,
   Search,
   RotateCcw,
   Pencil,
@@ -14,6 +13,7 @@ import DeviceWorkflowBuilder from "./DeviceWorkflowBuilder";
 import DeviceDetailsView from "./DeviceDetailsView";
 import { deviceInventoryApi, type IotProvisionResponse } from "../../api";
 import { useCrudResource } from "../../hooks";
+import { RightDrawer } from "../management/ui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type PrimitiveValue = string | number | boolean | null;
@@ -920,7 +920,7 @@ export default function DeviceManagementPage() {
       `}</style>
 
       {/* Top bar */}
-      <div className="flex items-start justify-between px-12 pt-12 pb-0">
+      <div className="flex items-start justify-between px-4 pt-4 pb-0 md:px-5">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">
             Device Inventory
@@ -939,10 +939,6 @@ export default function DeviceManagementPage() {
         <button
           type="button"
           onClick={() => {
-            if (selectedDevice) {
-              setSelectedDeviceId(null);
-              return;
-            }
             if (formOpen) {
               handleCancel();
               return;
@@ -950,14 +946,12 @@ export default function DeviceManagementPage() {
             openCreate();
           }}
           className={`mt-1 flex items-center gap-2 rounded-xl px-6 py-3 text-[13px] font-bold shadow-md transition-all active:scale-95 ${
-            selectedDevice || formOpen
+            formOpen
               ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
               : "bg-slate-900 text-white hover:bg-slate-700 hover:shadow-lg"
           }`}
         >
-          {selectedDevice ? (
-            <><X size={14} strokeWidth={2.5} />Close Panel</>
-          ) : formOpen ? (
+          {formOpen ? (
             <><X size={14} strokeWidth={2.5} />Close</>
           ) : (
             <><Plus size={15} strokeWidth={2.5} />Add Device</>
@@ -965,27 +959,8 @@ export default function DeviceManagementPage() {
         </button>
       </div>
 
-      {selectedDevice ? (
-        <div className="px-12 mt-8 pb-14">
-          <button
-            type="button"
-            onClick={() => setSelectedDeviceId(null)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[12px] font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
-          >
-            <ArrowLeft size={14} />
-            Devices
-          </button>
-
-          <div className="mt-5">
-            <DeviceDetailsView
-              device={selectedDevice}
-              onBack={() => setSelectedDeviceId(null)}
-              onEdit={() => openEdit(selectedDevice)}
-            />
-          </div>
-        </div>
-      ) : formOpen ? (
-      <div className="px-12 mt-8 pb-14">
+      {formOpen ? (
+      <div className="mt-4 px-3 pb-10 md:px-4 lg:px-5">
         <DeviceWorkflowBuilder
           title={editingId ? "Edit Device Workflow" : "Create Device Workflow"}
           subtitle="Choose catalog components in order, add missing records with +, and then create the device."
@@ -1002,6 +977,7 @@ export default function DeviceManagementPage() {
           communicationPoliciesLoading={communicationPoliciesLoading}
           messagesLoading={messagesLoading}
           vendorOptions={vendorOptions}
+          vendorRows={vendorRows}
           parameterOptions={parameterOptions}
           itemTypeOptions={itemTypeOptions}
           communicationPolicyOptions={communicationPolicyOptions}
@@ -1030,34 +1006,34 @@ export default function DeviceManagementPage() {
       ) : (
       <>
       {/* Stat Cards */}
-      <div className="px-12 mt-9 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 px-4 md:px-5 lg:grid-cols-4">
         <StatCard label="Total Devices" value={String(rows.length)} sub="all registered devices" />
         <StatCard label="Provisioning" value={String(provisioningCount)} sub="awaiting activation" />
         <StatCard label="Active" value={String(activeCount)} sub="currently online" />
         <StatCard label="MQTT" value={String(mqttCount)} sub="using MQTT protocol" />
       </div>
       {error && (
-        <div className="px-12 mt-4">
+        <div className="mt-4 px-4 md:px-5">
           <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-[12px] text-rose-700">
             {error}
           </p>
         </div>
       )}
       {submitError && (
-        <div className="px-12 mt-4">
+        <div className="mt-4 px-4 md:px-5">
           <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-[12px] text-rose-700">
             {submitError}
           </p>
         </div>
       )}
       {loading && (
-        <div className="px-12 mt-4">
+        <div className="mt-4 px-4 md:px-5">
           <p className="text-[12px] text-slate-500">Loading devices...</p>
         </div>
       )}
 
       {/* Main split layout */}
-      <div className="px-12 mt-8 pb-14 flex gap-6 items-start">
+      <div className="mt-6 flex items-start gap-6 px-4 pb-12 md:px-5">
 
         {/* Table column */}
         <div className="flex-1 min-w-0">
@@ -1208,6 +1184,20 @@ export default function DeviceManagementPage() {
       </div>
       </>
       )}
+
+      <RightDrawer
+        open={Boolean(selectedDevice)}
+        onClose={() => setSelectedDeviceId(null)}
+        size="large"
+      >
+        {selectedDevice ? (
+          <DeviceDetailsView
+            device={selectedDevice}
+            onBack={() => setSelectedDeviceId(null)}
+            onEdit={() => openEdit(selectedDevice)}
+          />
+        ) : null}
+      </RightDrawer>
     </div>
   );
 }

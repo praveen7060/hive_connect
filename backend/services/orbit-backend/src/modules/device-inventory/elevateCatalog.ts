@@ -186,10 +186,20 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     ],
     catalog: {
       deviceType: "vendor.elevate.switch_4ch",
+      transport: "MQTT",
+      adapterKey: "mqtt-aws-iot",
+      executionMode: "request-response",
       attributes: {
         vendor: ELEVATE_VENDOR_NAME,
         family: "switch_4ch",
       },
+      capabilities: [
+        "provision_device",
+        "turn_on",
+        "turn_off",
+        "subscribe_topics",
+        "fetch_documents"
+      ],
       commands: {
         turn_on: {
           subTopic: "control",
@@ -350,10 +360,20 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     ],
     catalog: {
       deviceType: "vendor.elevate.dongle_controller",
+      transport: "MQTT",
+      adapterKey: "mqtt-aws-iot",
+      executionMode: "request-response",
       attributes: {
         vendor: ELEVATE_VENDOR_NAME,
         family: "dongle_controller",
       },
+      capabilities: [
+        "provision_device",
+        "turn_on",
+        "turn_off",
+        "subscribe_topics",
+        "fetch_documents"
+      ],
       commands: {
         turn_on: {
           subTopic: "control",
@@ -412,10 +432,18 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     ],
     catalog: {
       deviceType: "vendor.elevate.smart_meter",
+      transport: "MQTT",
+      adapterKey: "mqtt-aws-iot",
+      executionMode: "stream",
       attributes: {
         vendor: ELEVATE_VENDOR_NAME,
         family: "smart_meter",
       },
+      capabilities: [
+        "provision_device",
+        "subscribe_topics",
+        "fetch_documents"
+      ],
     },
   },
   IOTIQ_GENERIC: {
@@ -448,10 +476,18 @@ const ELEVATE_FAMILY_TEMPLATES: Record<ElevateFamilyKey, ElevateFamilyTemplate> 
     ],
     catalog: {
       deviceType: "vendor.elevate.generic",
+      transport: "MQTT",
+      adapterKey: "mqtt-aws-iot",
+      executionMode: "stream",
       attributes: {
         vendor: ELEVATE_VENDOR_NAME,
         family: "generic",
       },
+      capabilities: [
+        "provision_device",
+        "subscribe_topics",
+        "fetch_documents"
+      ],
     },
   },
 };

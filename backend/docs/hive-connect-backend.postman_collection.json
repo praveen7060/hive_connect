@@ -1,0 +1,2434 @@
+{
+  "info": {
+    "_postman_id": "6f872d4e-7f88-4b4a-9a72-9db4c099f1fe",
+    "name": "Hive Connect Backend APIs",
+    "description": "Postman collection generated from the current backend codebase on 2026-05-26. Includes orbit-backend and connect-admin endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "orbit_base_url",
+      "value": "http://localhost:4001"
+    },
+    {
+      "key": "connect_admin_base_url",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "orbit_device_id",
+      "value": "sample-orbit-device-id"
+    },
+    {
+      "key": "connect_device_id",
+      "value": "IOTIQ4SC_A1024001"
+    },
+    {
+      "key": "thing_id",
+      "value": "thing-switch-iotiq4sc-a1024001"
+    },
+    {
+      "key": "app_id",
+      "value": "sample-console-app-id"
+    }
+  ],
+  "item": [
+    {
+      "name": "Orbit Backend",
+      "item": [
+        {
+          "name": "Health",
+          "item": [
+            {
+              "name": "Root",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    ""
+                  ]
+                },
+                "description": "Returns orbit-backend service metadata."
+              }
+            },
+            {
+              "name": "Health Check",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/health",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vendors",
+          "item": [
+            {
+              "name": "List Vendors",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/vendors",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vendors"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Vendor By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/vendors/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vendors",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Vendor",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Vendor A\",\n  \"description\": \"IoT platform vendor\",\n  \"type\": \"Platform\",\n  \"industry\": \"IoT\",\n  \"authType\": \"OAuth2\",\n  \"clientId\": \"client-id\",\n  \"clientSecret\": \"client-secret\",\n  \"authorizationUrl\": \"https://vendor.example.com/oauth/authorize\",\n  \"tokenUrl\": \"https://vendor.example.com/oauth/token\",\n  \"redirectUri\": \"https://app.example.com/callback\",\n  \"tokenType\": \"Bearer\",\n  \"apiToken\": \"api-token\",\n  \"jwtToken\": \"jwt-token\",\n  \"certificate\": \"-----BEGIN CERTIFICATE-----...\",\n  \"publicKey\": \"public-key\",\n  \"privateKey\": \"private-key\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/vendors",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vendors"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Vendor",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Updated vendor description\",\n  \"tokenType\": \"Bearer\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/vendors/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vendors",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Vendor",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/vendors/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vendors",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Import Vendor Postman Collection",
+              "request": {
+                "method": "POST",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/vendors/import-postman",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vendors",
+                    "import-postman"
+                  ]
+                },
+                "description": "Uploads a Postman collection file for vendor import."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Parameters",
+          "item": [
+            {
+              "name": "List Parameters",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/parameters",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parameters"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Parameter By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/parameters/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parameters",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Parameter",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Temperature\",\n  \"vendors\": \"Vendor A,Vendor B\",\n  \"variableType\": \"number\",\n  \"pinType\": \"analog\",\n  \"pinCount\": 1,\n  \"isConstant\": false\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/parameters",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parameters"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Parameter",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"pinCount\": 2,\n  \"isConstant\": true\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/parameters/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parameters",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Parameter",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/parameters/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parameters",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Import Parameter Document",
+              "request": {
+                "method": "POST",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/parameters/import-document",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "parameters",
+                    "import-document"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Item Types",
+          "item": [
+            {
+              "name": "List Item Types",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/item-types",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "item-types"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Item Type By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/item-types/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "item-types",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Item Type",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Smart Switch\",\n  \"description\": \"WiFi-enabled switch\",\n  \"synonyms\": \"Switch,Relay\",\n  \"vendorName\": \"Vendor A\",\n  \"image\": \"https://example.com/item-type.png\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/item-types",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "item-types"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Item Type",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Updated item type description\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/item-types/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "item-types",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Item Type",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/item-types/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "item-types",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Communications",
+          "item": [
+            {
+              "name": "List Communications",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/communications",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "communications"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Communication By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/communications/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "communications",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Communication",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"MQTT Policy\",\n  \"groupName\": \"Default Group\",\n  \"itemType\": \"Smart Switch\",\n  \"protocol\": \"MQTT\",\n  \"version\": \"3.1.1\",\n  \"messageFormat\": \"JSON\",\n  \"communicationMethod\": \"publish-subscribe\",\n  \"centric\": \"device\",\n  \"messageStructure\": \"{ \\\"status\\\": \\\"on\\\" }\",\n  \"confirmationMessageStructure\": \"{ \\\"ack\\\": true }\",\n  \"icon\": \"mdi-wifi\",\n  \"needFirmware\": false,\n  \"needConfirmation\": true,\n  \"format\": \"json\",\n  \"transport\": \"tcp\",\n  \"metadata\": \"sample metadata\",\n  \"image\": \"https://example.com/comm.png\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/communications",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "communications"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Communication",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"needConfirmation\": false,\n  \"version\": \"5.0\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/communications/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "communications",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Communication",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/communications/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "communications",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Messages",
+          "item": [
+            {
+              "name": "List Messages",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/messages",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "messages"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Message By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/messages/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "messages",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Message",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Switch Control\",\n  \"itemType\": \"Smart Switch\",\n  \"communicationPolicy\": \"MQTT Policy\",\n  \"topic\": \"device/{{thing_id}}/control\",\n  \"messageType\": \"command\",\n  \"commandType\": \"control\",\n  \"policyType\": \"at-least-once\",\n  \"communicationMethod\": \"publish\",\n  \"topicUnique\": true,\n  \"isPayloadCentric\": true,\n  \"retainMessages\": false,\n  \"loggedMessage\": true,\n  \"qos\": 1,\n  \"pollingInterval\": 60,\n  \"requestPayloadFormat\": \"{ \\\"status\\\": \\\"on\\\" }\",\n  \"responsePayloadFormat\": \"{ \\\"ack\\\": true }\",\n  \"payloadFormat\": \"json\",\n  \"confirmationPayloadFormat\": \"json\",\n  \"notes\": \"Sample command message\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/messages",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "messages"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Message",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"loggedMessage\": false,\n  \"qos\": 0\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/messages/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "messages",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Message",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/messages/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "messages",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Items",
+          "item": [
+            {
+              "name": "List Items",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/items",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Item By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/items/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "items",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Orbit 4CH Switch\",\n  \"itemCode\": \"SW4-001\",\n  \"description\": \"Four channel switch\",\n  \"metadata\": \"{ \\\"category\\\": \\\"switch\\\" }\",\n  \"itemPollingConfig\": \"{ \\\"intervalSeconds\\\": 60 }\",\n  \"vendor\": \"Vendor A\",\n  \"itemType\": \"Smart Switch\",\n  \"communicationPolicy\": \"MQTT Policy\",\n  \"gateway\": \"false\",\n  \"icon\": \"mdi-toggle-switch\",\n  \"tags\": \"home,lighting\",\n  \"componentCount\": 4,\n  \"secureItem\": true,\n  \"image\": \"https://example.com/item.png\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/items",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Item",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"componentCount\": 8,\n  \"tags\": \"home,lighting,updated\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/items/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "items",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Item",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/items/11111111-1111-1111-1111-111111111111",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "items",
+                    "11111111-1111-1111-1111-111111111111"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Device Inventory",
+          "item": [
+            {
+              "name": "List Devices",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/devices",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Device By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/devices/{{orbit_device_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices",
+                    "{{orbit_device_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Orbit Device 1\",\n  \"foreignId\": \"EXT-1\",\n  \"gatewayForeignId\": \"GW-1\",\n  \"serialNumber\": \"SERIAL-1001\",\n  \"image\": \"https://example.com/device.png\",\n  \"icon\": \"mdi-chip\",\n  \"connectionType\": \"MQTT\",\n  \"project\": \"Project Alpha\",\n  \"metadata\": \"{ \\\"site\\\": \\\"HQ\\\" }\",\n  \"address\": \"123 Main Street\",\n  \"addressDetails\": \"Floor 2\",\n  \"houseNo\": \"12A\",\n  \"block\": \"B\",\n  \"street\": \"Main Street\",\n  \"city\": \"Bengaluru\",\n  \"state\": \"Karnataka\",\n  \"country\": \"India\",\n  \"zipCode\": \"560001\",\n  \"status\": \"provisioning\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/devices",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Device",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"active\",\n  \"city\": \"Chennai\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/devices/{{orbit_device_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices",
+                    "{{orbit_device_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Device",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/devices/{{orbit_device_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices",
+                    "{{orbit_device_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Upsert Discovered Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"serialNumber\": \"SERIAL-1001\",\n  \"name\": \"Discovered Device\",\n  \"connectionType\": \"MQTT\",\n  \"project\": \"Project Alpha\",\n  \"status\": \"discovered\",\n  \"thingId\": \"thing-switch-iotiq4sc-a1024001\",\n  \"firmwareVersion\": \"1.0.0\",\n  \"channels\": \"4S1F\",\n  \"vendorName\": \"Vendor A\",\n  \"source\": \"connect-admin\",\n  \"rawPayload\": {\n    \"deviceid\": \"SERIAL-1001\"\n  },\n  \"telemetryTopic\": \"telemetry/devices/SERIAL-1001\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/devices/internal/discovered",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices",
+                    "internal",
+                    "discovered"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "IoT Orchestration",
+          "item": [
+            {
+              "name": "Provision Thing",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{orbit_device_id}}\",\n  \"deviceType\": \"SWITCH_4CH\",\n  \"thingName\": \"thing-switch-iotiq4sc-a1024001\",\n  \"thingTypeName\": \"ccms-switch_4ch\",\n  \"policyName\": \"default-policy\",\n  \"attributes\": {\n    \"deviceId\": \"{{orbit_device_id}}\",\n    \"project\": \"Project Alpha\"\n  },\n  \"s3Prefix\": \"ccms/devices/{{orbit_device_id}}\",\n  \"channels\": \"4S1F\",\n  \"forceProvision\": false\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/things/provision",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "things",
+                    "provision"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Device Mapping",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/devices/{{orbit_device_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "devices",
+                    "{{orbit_device_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Provisioning Status",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/devices/{{orbit_device_id}}/provisioning",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "provisioning"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Control Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"on\",\n  \"switchNo\": 1,\n  \"channel\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/devices/{{orbit_device_id}}/control",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "control"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Publish To Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"subTopic\": \"control\",\n  \"payload\": {\n    \"deviceid\": \"{{orbit_device_id}}\",\n    \"status\": \"on\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/devices/{{orbit_device_id}}/publish",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "publish"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Device Documents",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"thingName\": \"thing-switch-iotiq4sc-a1024001\",\n  \"documentPaths\": {\n    \"certificate\": \"ccms/devices/{{orbit_device_id}}/certificate.pem.crt\",\n    \"privateKey\": \"ccms/devices/{{orbit_device_id}}/private.pem.key\",\n    \"publicKey\": \"ccms/devices/{{orbit_device_id}}/public.pem.key\",\n    \"metadata\": \"ccms/devices/{{orbit_device_id}}/metadata.json\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/devices/{{orbit_device_id}}/documents",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "documents"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Subscribe Topics",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"topics\": [\n    \"mqtt/device/{{thing_id}}/status\",\n    \"mqtt/device/{{thing_id}}/energy\"\n  ],\n  \"messageIds\": [\n    \"sample-message-id\"\n  ]\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/topics/subscribe",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "topics",
+                    "subscribe"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Catalog Device Profile",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/catalog/devices/{{orbit_device_id}}/profile",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "catalog",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "profile"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Catalog Device Capabilities",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/catalog/devices/{{orbit_device_id}}/capabilities",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "catalog",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "capabilities"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Provision Catalog Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"thingName\": \"thing-switch-iotiq4sc-a1024001\",\n  \"policyName\": \"default-policy\",\n  \"s3Prefix\": \"ccms/devices/{{orbit_device_id}}\",\n  \"channels\": \"4S1F\",\n  \"forceProvision\": false,\n  \"assetVersion\": 1,\n  \"attributes\": {\n    \"project\": \"Project Alpha\"\n  },\n  \"deviceType\": \"SWITCH_4CH\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/catalog/devices/{{orbit_device_id}}/provision",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "catalog",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "provision"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Execute Catalog Command",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"messageId\": \"sample-message-id\",\n  \"topic\": \"mqtt/device/{{thing_id}}/control\",\n  \"subTopic\": \"control\",\n  \"parameters\": {\n    \"switchNo\": 1\n  },\n  \"payload\": {\n    \"status\": \"on\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/catalog/devices/{{orbit_device_id}}/commands/power-toggle",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "catalog",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "commands",
+                    "power-toggle"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Subscribe Catalog Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"topics\": [\n    \"mqtt/device/{{thing_id}}/telemetry\"\n  ],\n  \"messageIds\": [\n    \"sample-message-id\"\n  ]\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/catalog/devices/{{orbit_device_id}}/subscriptions",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "catalog",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "subscriptions"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Ingest Telemetry",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"serialNumber\": \"{{connect_device_id}}\",\n  \"topic\": \"$aws/things/{{thing_id}}/update\",\n  \"thingId\": \"{{thing_id}}\",\n  \"vendorName\": \"ELEVATE\",\n  \"source\": \"postman\",\n  \"receivedAt\": \"2026-05-26T12:00:00.000Z\",\n  \"payload\": {\n    \"deviceid\": \"{{connect_device_id}}\",\n    \"status\": \"active\",\n    \"firmware_version\": \"1.0.0\",\n    \"climate\": \"29/68/520\",\n    \"energy\": \"230/1.2/180/4.8\",\n    \"switch_no\": \"S1\",\n    \"channels\": \"4S1F\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/iot/telemetry/ingest",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "telemetry",
+                    "ingest"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Application Console",
+          "item": [
+            {
+              "name": "List Apps",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get App By Id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps/{{app_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps",
+                    "{{app_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create App",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Hive Mobile\",\n  \"domain\": \"consumer\",\n  \"applicationCode\": \"HIVE_MOBILE\",\n  \"project\": \"Project Alpha\",\n  \"platform\": \"android\",\n  \"applicationType\": \"mobile\",\n  \"description\": \"Customer mobile app\",\n  \"image\": \"https://example.com/app.png\",\n  \"icon\": \"mdi-cellphone\",\n  \"bundleVersion\": \"1.0.0\",\n  \"authType\": \"app-key\",\n  \"sdkUrl\": \"https://example.com/sdk.zip\",\n  \"bundleUrl\": \"https://example.com/app.apk\",\n  \"secretKey\": \"secret-key\",\n  \"accessKey\": \"access-key\",\n  \"clientId\": \"client-id\",\n  \"headerKey\": \"x-app-key\",\n  \"metadata\": \"{ \\\"segment\\\": \\\"consumer\\\" }\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update App",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"inactive\",\n  \"description\": \"Updated description\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps/{{app_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps",
+                    "{{app_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete App",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps/{{app_id}}",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps",
+                    "{{app_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Enrollment QR",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"expiresInMinutes\": 60,\n  \"issuedForAppId\": \"{{app_id}}\",\n  \"qrType\": \"device_claim\",\n  \"deepLinkBase\": \"hive://claim\"\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/devices/{{orbit_device_id}}/enrollment-qrs",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "enrollment-qrs"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Claim Enrollment QR",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"appId\": \"{{app_id}}\",\n  \"appKey\": \"sample-app-key\",\n  \"qrToken\": \"sample-qr-token\",\n  \"installationId\": \"install-001\",\n  \"alias\": \"Living Room Device\",\n  \"metadata\": {\n    \"claimedBy\": \"qa\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/claims",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "claims"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "List Claimed Devices For App",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps/{{app_id}}/devices",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps",
+                    "{{app_id}}",
+                    "devices"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Execute Claimed Device Command",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"appKey\": \"sample-app-key\",\n  \"installationId\": \"install-001\",\n  \"messageId\": \"sample-message-id\",\n  \"topic\": \"mqtt/device/{{thing_id}}/control\",\n  \"subTopic\": \"control\",\n  \"parameters\": {\n    \"switchNo\": 1\n  },\n  \"payload\": {\n    \"status\": \"on\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{orbit_base_url}}/api/application-console/apps/{{app_id}}/devices/{{orbit_device_id}}/commands/power-toggle",
+                  "host": [
+                    "{{orbit_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "application-console",
+                    "apps",
+                    "{{app_id}}",
+                    "devices",
+                    "{{orbit_device_id}}",
+                    "commands",
+                    "power-toggle"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Connect Admin",
+      "item": [
+        {
+          "name": "Health",
+          "item": [
+            {
+              "name": "Health Check",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/health",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Devices",
+          "item": [
+            {
+              "name": "List Devices",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/devices",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Device By DeviceId",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/devices/{{connect_device_id}}",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices",
+                    "{{connect_device_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"IOTIQ4SC_A1024001\",\n  \"deviceType\": \"SWITCH_4CH\",\n  \"thingId\": \"{{thing_id}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/devices",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Device",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/devices/{{connect_device_id}}",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "devices",
+                    "{{connect_device_id}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Device Control",
+          "item": [
+            {
+              "name": "Universal Control",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{connect_device_id}}\",\n  \"status\": \"on\",\n  \"switchNo\": 1,\n  \"channel\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/device/{{thing_id}}/control",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "device",
+                    "{{thing_id}}",
+                    "control"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Analytics",
+          "item": [
+            {
+              "name": "Get Daily Energy",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/analytics/energy/{{connect_device_id}}",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "analytics",
+                    "energy",
+                    "{{connect_device_id}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reports",
+          "item": [
+            {
+              "name": "Device PDF Report",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/reports/device/{{connect_device_id}}/pdf",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "reports",
+                    "device",
+                    "{{connect_device_id}}",
+                    "pdf"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "OTA",
+          "item": [
+            {
+              "name": "Initialize OTA",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"{{connect_device_id}}\",\n  \"url\": \"https://example.com/firmware.bin\",\n  \"ota_version\": \"1.2.3\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/ota/{{thing_id}}/init",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ota",
+                    "{{thing_id}}",
+                    "init"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dongle",
+          "item": [
+            {
+              "name": "Configure Dongle",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"IOTIQDC2_A1025022\",\n  \"ssid\": \"OfficeWiFi\",\n  \"password\": \"secret123\",\n  \"access_token\": \"token\",\n  \"secret\": \"secret\",\n  \"mode\": \"1\",\n  \"ota_host\": \"https://example.com\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/dongle/{{thing_id}}/config",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "dongle",
+                    "{{thing_id}}",
+                    "config"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Set Dongle Channel Settings",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"IOTIQDC2_A1025022\",\n  \"channel\": 1,\n  \"switch_no\": \"S1\",\n  \"childlock\": \"on\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/dongle/{{thing_id}}/setting",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "dongle",
+                    "{{thing_id}}",
+                    "setting"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Reset Dongle",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"IOTIQDC2_A1025022\",\n  \"mode\": \"1\",\n  \"secret\": \"secret\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/dongle/{{thing_id}}/reset",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "dongle",
+                    "{{thing_id}}",
+                    "reset"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Request Dongle Alive",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"IOTIQDC2_A1025022\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/dongle/{{thing_id}}/alive",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "dongle",
+                    "{{thing_id}}",
+                    "alive"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Dongle Channels",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/dongle/{{connect_device_id}}/channels",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "dongle",
+                    "{{connect_device_id}}",
+                    "channels"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Smart Meter",
+          "item": [
+            {
+              "name": "Configure Smart Meter",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"SMARTMETER_001\",\n  \"ssid\": \"OfficeWiFi\",\n  \"password\": \"secret123\",\n  \"access_token\": \"token\",\n  \"secret\": \"secret\",\n  \"mode\": \"1\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{thing_id}}/config",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{thing_id}}",
+                    "config"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Set Smart Meter Settings",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"SMARTMETER_001\",\n  \"status\": \"enabled\",\n  \"parameter\": \"Vrp\",\n  \"range\": \"240\",\n  \"thres\": \"high\",\n  \"trig_time\": \"16.00\",\n  \"stop_time\": \"19.30\",\n  \"repeat\": \"oooooof\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{thing_id}}/setting",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{thing_id}}",
+                    "setting"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Control Smart Meter",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"SMARTMETER_001\",\n  \"status\": \"on\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{thing_id}}/control",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{thing_id}}",
+                    "control"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Reset Smart Meter",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"SMARTMETER_001\",\n  \"mode\": \"1\",\n  \"secret\": \"secret\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{thing_id}}/reset",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{thing_id}}",
+                    "reset"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Request Smart Meter Alive",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceid\": \"SMARTMETER_001\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{thing_id}}/alive",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{thing_id}}",
+                    "alive"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Summary Analytics",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/analytics/summary?from=2026-05-01T00:00:00.000Z&to=2026-05-26T23:59:59.999Z&meter=m1",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "analytics",
+                    "summary"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2026-05-01T00:00:00.000Z"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2026-05-26T23:59:59.999Z"
+                    },
+                    {
+                      "key": "meter",
+                      "value": "m1"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Series Analytics",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/analytics/series?from=2026-05-01T00:00:00.000Z&to=2026-05-26T23:59:59.999Z&meter=m1&bucket=hour",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "analytics",
+                    "series"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2026-05-01T00:00:00.000Z"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2026-05-26T23:59:59.999Z"
+                    },
+                    {
+                      "key": "meter",
+                      "value": "m1"
+                    },
+                    {
+                      "key": "bucket",
+                      "value": "hour"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Live Analytics",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/analytics/live?meter=m1",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "analytics",
+                    "live"
+                  ],
+                  "query": [
+                    {
+                      "key": "meter",
+                      "value": "m1"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Trend Analytics",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/analytics/trend?minutes=120&meter=m1&bucket=minute",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "analytics",
+                    "trend"
+                  ],
+                  "query": [
+                    {
+                      "key": "minutes",
+                      "value": "120"
+                    },
+                    {
+                      "key": "meter",
+                      "value": "m1"
+                    },
+                    {
+                      "key": "bucket",
+                      "value": "minute"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Data History",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/data?limit=10",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "data"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Settings",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/settings",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "settings"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Smart Meter Latest Snapshot",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/smartmeter/{{connect_device_id}}/latest",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "smartmeter",
+                    "{{connect_device_id}}",
+                    "latest"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "IoT Provisioning",
+          "item": [
+            {
+              "name": "Provision AWS IoT Thing",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"thingName\": \"{{thing_id}}\",\n  \"thingTypeName\": \"ccms-switch_4ch\",\n  \"policyName\": \"default-policy\",\n  \"attributes\": {\n    \"deviceId\": \"{{connect_device_id}}\"\n  },\n  \"s3Prefix\": \"ccms/devices/{{connect_device_id}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/api/iot/things/provision",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "iot",
+                    "things",
+                    "provision"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Internal",
+          "item": [
+            {
+              "name": "Onboard Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{connect_device_id}}\",\n  \"deviceType\": \"SWITCH_4CH\",\n  \"thingName\": \"{{thing_id}}\",\n  \"thingTypeName\": \"ccms-switch_4ch\",\n  \"policyName\": \"default-policy\",\n  \"s3Prefix\": \"ccms/devices/{{connect_device_id}}\",\n  \"channels\": \"4S1F\",\n  \"forceProvision\": false,\n  \"attributes\": {\n    \"deviceId\": \"{{connect_device_id}}\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/onboard",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "onboard"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Register Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{connect_device_id}}\",\n  \"deviceType\": \"SWITCH_4CH\",\n  \"thingId\": \"{{thing_id}}\",\n  \"channels\": \"4S1F\",\n  \"firmwareVersion\": \"1.0.0\",\n  \"ipAddress\": \"192.168.1.10\",\n  \"macAddress\": \"AA:BB:CC:DD:EE:FF\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/register",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "register"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Internal Device",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/{{connect_device_id}}",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "{{connect_device_id}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Internal Provisioning Status",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/{{connect_device_id}}/provisioning",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "{{connect_device_id}}",
+                    "provisioning"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Fetch Internal Device Documents",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"thingName\": \"{{thing_id}}\",\n  \"documentPaths\": {\n    \"certificate\": \"ccms/devices/{{connect_device_id}}/certificate.pem.crt\",\n    \"privateKey\": \"ccms/devices/{{connect_device_id}}/private.pem.key\",\n    \"publicKey\": \"ccms/devices/{{connect_device_id}}/public.pem.key\",\n    \"metadata\": \"ccms/devices/{{connect_device_id}}/metadata.json\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/{{connect_device_id}}/documents",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "{{connect_device_id}}",
+                    "documents"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Deprovision Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"thingName\": \"{{thing_id}}\",\n  \"s3Prefix\": \"ccms/devices/{{connect_device_id}}\",\n  \"deleteS3Objects\": true,\n  \"deleteDeviceRecord\": false\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/{{connect_device_id}}/deprovision",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "{{connect_device_id}}",
+                    "deprovision"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Internal Control Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"on\",\n  \"switchNo\": 1,\n  \"channel\": 1,\n  \"subTopic\": \"control\"\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/{{connect_device_id}}/control",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "{{connect_device_id}}",
+                    "control"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Internal Publish To Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"subTopic\": \"setting\",\n  \"payload\": {\n    \"deviceid\": \"{{connect_device_id}}\",\n    \"switch_no\": \"S1\",\n    \"childlock\": \"on\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/devices/{{connect_device_id}}/publish",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "devices",
+                    "{{connect_device_id}}",
+                    "publish"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Internal Subscribe Topics",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"topics\": [\n    \"mqtt/device/{{thing_id}}/telemetry\",\n    \"mqtt/device/{{thing_id}}/health\"\n  ]\n}"
+                },
+                "url": {
+                  "raw": "{{connect_admin_base_url}}/internal/iot/topics/subscribe",
+                  "host": [
+                    "{{connect_admin_base_url}}"
+                  ],
+                  "path": [
+                    "internal",
+                    "iot",
+                    "topics",
+                    "subscribe"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
