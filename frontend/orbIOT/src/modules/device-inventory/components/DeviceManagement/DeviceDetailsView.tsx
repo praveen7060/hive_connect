@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
-  Bot,
+  ChevronDown,
   ChevronRight,
   Clock3,
   Copy,
@@ -18,7 +18,6 @@ import {
   Radio,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Upload,
   Wifi,
   Zap,
@@ -321,6 +320,8 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
   const [catalogProfile, setCatalogProfile] = useState<CatalogProfileResponse | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [commandDrafts, setCommandDrafts] = useState<Record<string, CommandDraft>>({});
+  const [expandedPayloadTemplates, setExpandedPayloadTemplates] = useState<Record<string, boolean>>({});
+  const autoQrRequestRef = useRef<string | null>(null);
 
   const deviceRecord = liveDevice ?? device;
   const deviceId = displayText(deviceRecord.id, "");
@@ -352,6 +353,7 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
   const thingType = readString(iot.thingTypeName) ?? readString(catalog.itemType) ?? "vendor.elevate.device";
   const secureBucket = readString(onboardingQr.bucket) ?? readString(iot.bucket) ?? "Protected bucket";
   const secureObjectKey = readString(onboardingQr.objectKey);
+  const onboardingQrSvg = readString(onboardingQr.svg) ?? readString(onboarding.qrSvg);
   const qrGeneratedAt = readString(onboarding.generatedAt) ?? displayText(deviceRecord.lastQrGeneratedAt, "");
   const vendorName = readString(catalog.vendorName) ?? "Vendor not mapped";
   const policyName = readString(iot.policyAttached) ?? readString(getRecord(catalog, "provisioning").policyName) ?? "Default device policy";
@@ -370,23 +372,46 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
 
       setDetailsLoading(true);
       try {
-        const [deviceData, provisioningData, profileData] = await Promise.all([
+        const [deviceResult, provisioningResult, profileResult] = await Promise.allSettled([
           deviceInventoryApi.devices.getById(deviceId),
           deviceInventoryApi.iot.getProvisioningStatus(serialNumber),
           deviceInventoryApi.iot.getCatalogProfile(deviceId),
         ]);
 
-        if (!cancelled) {
-          setLiveDevice(deviceData as DeviceRecord);
-          setProvisioningStatus(isRecord(provisioningData) ? provisioningData : null);
-          setCatalogProfile(profileData);
+        if (cancelled) return;
+
+        if (deviceResult.status === "fulfilled") {
+          setLiveDevice(deviceResult.value as DeviceRecord);
+          setProvisioningError(null);
+        } else {
+          const message =
+            deviceResult.reason instanceof Error
+              ? deviceResult.reason.message
+              : "Unable to load live device state";
+          setProvisioningError(message);
+        }
+
+        if (provisioningResult.status === "fulfilled") {
+          setProvisioningStatus(isRecord(provisioningResult.value) ? provisioningResult.value : null);
+        } else {
+          setProvisioningStatus(null);
+        }
+
+        if (profileResult.status === "fulfilled") {
+          setCatalogProfile(profileResult.value);
           setCommandDrafts(
             Object.fromEntries(
-              (profileData.commands ?? []).map((command) => [command.key, createCommandDraft(command)])
+              (profileResult.value.commands ?? []).map((command) => [command.key, createCommandDraft(command)])
             )
           );
-          setProvisioningError(null);
           setCatalogError(null);
+        } else {
+          const message =
+            profileResult.reason instanceof Error
+              ? profileResult.reason.message
+              : "Unable to load command profile";
+          setCatalogProfile(null);
+          setCatalogError(message);
         }
       } catch (error) {
         if (!cancelled) {
@@ -429,11 +454,6 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
     if (ageMinutes <= 20) return "Medium";
     return "Low";
   }, [lastSyncAt]);
-
-  const uptimeSeries = useMemo(() => {
-    const score = signalQuality === "High" ? 92 : signalQuality === "Medium" ? 68 : 34;
-    return [score - 8, score - 4, score, Math.max(24, score - 10), Math.max(18, score - 18)];
-  }, [signalQuality]);
 
   const overviewInsights = useMemo(() => {
     if (status !== "active") {
@@ -485,7 +505,7 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
     [certificateId, deviceRecord.createdAt, deviceRecord.lastProvisionedAt, deviceRecord.updatedAt, qrGeneratedAt, secureObjectKey]
   );
 
-  const handleGenerateClaimQr = async (regenerate = false) => {
+  const handleGenerateClaimQr = useCallback(async (regenerate = false) => {
     if (!deviceId) return;
 
     setClaimQrLoading(true);
@@ -510,7 +530,15 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
     } finally {
       setClaimQrLoading(false);
     }
-  };
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (!deviceId || claimQrLoading || claimQr?.svg || onboardingQrSvg) return;
+    if (autoQrRequestRef.current === deviceId) return;
+
+    autoQrRequestRef.current = deviceId;
+    void handleGenerateClaimQr(false);
+  }, [claimQr?.svg, claimQrLoading, deviceId, handleGenerateClaimQr, onboardingQrSvg]);
 
   const handleRevealCredentials = async () => {
     const validation = typeof window !== "undefined"
@@ -626,8 +654,8 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
 
   const headerStatus = status === "active" ? "Online" : status === "provisioning" ? "Provisioning" : "Offline";
   const monitoringLabel = detailsLoading ? "Refreshing live state" : formatRelative(lastSyncAt);
-  const onboardingQrReady = Boolean(secureObjectKey);
-  const qrCardLabel = claimQr ? "Claim QR active" : onboardingQrReady ? "Secure QR available" : "QR pending";
+  const onboardingQrReady = Boolean(secureObjectKey || onboardingQrSvg);
+  const visibleQrSvg = claimQr?.svg || onboardingQrSvg;
 
   return (
     <div className="flex h-full flex-col bg-[linear-gradient(180deg,#fcfcf8_0%,#f7f8f2_100%)] text-[var(--iotiq-text)]">
@@ -727,7 +755,7 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                 <SmallStat label="Onboarding" value={String(onboardingVersion || 1)} meta="Asset version" />
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="grid gap-4">
                 <SectionCard
                   title="Pairing and claim"
                   subtitle="Primary QR actions for pairing, field claims, and operator handoff."
@@ -746,20 +774,20 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                   <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                     <div className="rounded-[22px] border border-[#e6ebdb] bg-[linear-gradient(180deg,#ffffff_0%,#f7f9f2_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
                       <div className="flex h-[196px] items-center justify-center overflow-hidden rounded-[18px] border border-dashed border-[#d8dfca] bg-white">
-                        {claimQr?.svg ? (
+                        {visibleQrSvg ? (
                           <div
                             className="[&_svg]:h-[170px] [&_svg]:w-[170px]"
-                            dangerouslySetInnerHTML={{ __html: claimQr.svg }}
+                            dangerouslySetInnerHTML={{ __html: visibleQrSvg }}
                           />
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-center text-[var(--iotiq-muted)]">
                             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3f7ee] text-[#7caf63]">
                               <QrCode size={28} />
                             </div>
-                            <p className="text-[12px] font-medium text-[var(--iotiq-text)]">{qrCardLabel}</p>
+                            <p className="text-[12px] font-medium text-[var(--iotiq-text)]">{claimQrLoading ? "Generating secure QR" : "Generate secure QR"}</p>
                             <p className="max-w-[150px] text-[11px] leading-5">
-                              {onboardingQrReady
-                                ? "Onboarding QR asset is stored securely. Generate a fresh claim QR when you need to share access."
+                              {claimQrLoading
+                                ? "Preparing QR for secure device pairing and claim."
                                 : "Generate a claim QR to start controlled device sharing."}
                             </p>
                           </div>
@@ -798,8 +826,8 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                         <ActionButton
                           icon={Download}
                           label="Download QR"
-                          onClick={() => claimQr?.svg && downloadFile(`${serialNumber}-claim-qr.svg`, claimQr.svg, "image/svg+xml")}
-                          disabled={!claimQr?.svg}
+                          onClick={() => visibleQrSvg && downloadFile(`${serialNumber}-claim-qr.svg`, visibleQrSvg, "image/svg+xml")}
+                          disabled={!visibleQrSvg}
                         />
                         <ActionButton
                           icon={RefreshCw}
@@ -823,34 +851,9 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                   </div>
                 </SectionCard>
 
-                <SectionCard title="AI insights" subtitle="Compact operational guidance from the latest device state.">
-                  <div className={`rounded-[20px] border px-4 py-4 ${metricTone(overviewInsights.tone)}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-white/80">
-                        <Bot size={18} />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium">{overviewInsights.title}</p>
-                        <p className="mt-1 text-[11px] leading-5">{overviewInsights.body}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-[11px]">
-                    {[
-                      "Keep claim QR generation manual for secure field handoff.",
-                      "Use shadow refresh before manual reconnection during stale-state checks.",
-                      "Certificate material remains masked until session validation succeeds.",
-                    ].map((tip) => (
-                      <div key={tip} className="flex items-start gap-2 rounded-2xl border border-[var(--iotiq-border)] bg-[#fafaf5] px-3 py-2 text-[var(--iotiq-muted)]">
-                        <Sparkles size={13} className="mt-0.5 text-[#d9b14a]" />
-                        <span>{tip}</span>
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+              <div className="grid gap-4">
                 <SectionCard title="Device summary" subtitle="Clean runtime context without dumping the full metadata payload.">
                   <div className="grid gap-2 text-[12px]">
                     {[
@@ -866,44 +869,6 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                         <span className="max-w-[55%] truncate font-medium text-[var(--iotiq-text)]">{value}</span>
                       </div>
                     ))}
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Connectivity snapshot" subtitle="Realtime posture, sync recency, and transport confidence.">
-                  <div className="grid gap-3 lg:grid-cols-[1fr_150px]">
-                    <div className="rounded-[20px] border border-[#dcebd6] bg-[linear-gradient(180deg,#f7fbf3_0%,#ffffff_100%)] px-4 py-4">
-                      <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--iotiq-text)]">
-                        <span className="inventory-pulse-dot bg-[#7caf63]" />
-                        Link healthy
-                      </div>
-                      <p className="mt-2 text-[11px] leading-5 text-[var(--iotiq-muted)]">
-                        MQTT identity, onboarding assets, and last known sync markers are available for this device snapshot.
-                      </p>
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="rounded-2xl bg-white px-3 py-2">
-                          <p className="text-[var(--iotiq-muted)]">Last sync</p>
-                          <p className="mt-1 font-medium text-[var(--iotiq-text)]">{formatRelative(lastSyncAt)}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white px-3 py-2">
-                          <p className="text-[var(--iotiq-muted)]">Signal</p>
-                          <p className="mt-1 font-medium text-[var(--iotiq-text)]">{signalQuality}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[20px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-3 py-3">
-                      <p className="text-[11px] text-[var(--iotiq-muted)]">Uptime trend</p>
-                      <div className="mt-4 flex h-[100px] items-end gap-2">
-                        {uptimeSeries.map((value, index) => (
-                          <div key={`${value}-${index}`} className="flex-1 rounded-full bg-white p-1">
-                            <div
-                              className="w-full rounded-full bg-[linear-gradient(180deg,#d9b14a_0%,#7caf63_100%)]"
-                              style={{ height: `${Math.max(14, value)}%` }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </SectionCard>
               </div>
@@ -927,6 +892,7 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                       const draft = commandDrafts[command.key] ?? createCommandDraft(command);
                       const parameterKeys = Object.keys(draft.parameters);
                       const busy = actionBusy === `policy:${command.key}`;
+                      const payloadExpanded = Boolean(expandedPayloadTemplates[command.key]);
 
                       return (
                         <div
@@ -952,15 +918,32 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                                 Topic: {command.topicTemplate ?? command.subTopic ?? "Resolved by adapter"}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => void executePolicyCommand(command)}
-                              disabled={busy}
-                              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#111111] px-4 text-[12px] font-medium text-white transition hover:bg-[#1f1f1f] disabled:opacity-50"
-                            >
-                              <Play size={13} />
-                              {busy ? "Running..." : "Run"}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedPayloadTemplates((current) => ({
+                                    ...current,
+                                    [command.key]: !current[command.key],
+                                  }))
+                                }
+                                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 text-[11px] font-medium text-[var(--iotiq-muted)] transition hover:bg-white"
+                                aria-expanded={payloadExpanded}
+                                aria-label={payloadExpanded ? "Hide payload template" : "Show payload template"}
+                              >
+                                Payload
+                                <ChevronDown size={13} className={`transition ${payloadExpanded ? "rotate-180" : ""}`} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void executePolicyCommand(command)}
+                                disabled={busy}
+                                className="inline-flex h-9 items-center gap-2 rounded-full bg-[#111111] px-4 text-[12px] font-medium text-white transition hover:bg-[#1f1f1f] disabled:opacity-50"
+                              >
+                                <Play size={13} />
+                                {busy ? "Running..." : "Run"}
+                              </button>
+                            </div>
                           </div>
 
                           {parameterKeys.length ? (
@@ -981,19 +964,21 @@ export default function DeviceDetailsView({ device, onBack, onEdit }: DeviceDeta
                             </div>
                           ) : null}
 
-                          <div className="mt-4 space-y-1.5">
-                            <p className="text-[11px] text-[var(--iotiq-muted)]">Payload template</p>
-                            <textarea
-                              value={draft.payloadJson}
-                              onChange={(event) => updateCommandPayload(command.key, event.target.value)}
-                              rows={6}
-                              className="w-full rounded-[20px] border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-3 font-mono text-[11px] text-[var(--iotiq-text)] outline-none transition focus:border-[var(--iotiq-primary)] focus:ring-2 focus:ring-[rgba(124,175,99,0.12)]"
-                              spellCheck={false}
-                            />
-                            <p className="text-[10px] text-[#8d9187]">
-                              Values here map directly to the messaging policy payload template and MQTT topic execution.
-                            </p>
-                          </div>
+                          {payloadExpanded ? (
+                            <div className="mt-4 space-y-1.5">
+                              <p className="text-[11px] text-[var(--iotiq-muted)]">Payload template</p>
+                              <textarea
+                                value={draft.payloadJson}
+                                onChange={(event) => updateCommandPayload(command.key, event.target.value)}
+                                rows={6}
+                                className="w-full rounded-[20px] border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-3 font-mono text-[11px] text-[var(--iotiq-text)] outline-none transition focus:border-[var(--iotiq-primary)] focus:ring-2 focus:ring-[rgba(124,175,99,0.12)]"
+                                spellCheck={false}
+                              />
+                              <p className="text-[10px] text-[#8d9187]">
+                                Values here map directly to the messaging policy payload template and MQTT topic execution.
+                              </p>
+                            </div>
+                          ) : null}
                         </div>
                       );
                     })}
