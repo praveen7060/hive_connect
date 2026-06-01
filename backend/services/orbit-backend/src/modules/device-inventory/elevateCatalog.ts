@@ -56,6 +56,17 @@ export type ElevateDiscoveryInput = {
   thingId?: string;
 };
 
+function inferComponentCountFromChannels(value: string | undefined, fallback: number) {
+  const normalized = value?.trim();
+  if (!normalized) return fallback;
+
+  const match = normalized.match(/^(\d+)/);
+  if (!match) return fallback;
+
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 const ELEVATE_VENDOR_NAME = "ELEVATE";
 const MQTT_TOPIC_TEMPLATE = "$aws/things/+/update";
 
@@ -504,13 +515,25 @@ export function resolveElevateTemplate(input: ElevateDiscoveryInput) {
   const familyKey = getElevateFamilyKey(input.serialNumber);
   const base = ELEVATE_FAMILY_TEMPLATES[familyKey];
   const channels = input.channels?.trim() || base.channels;
+  const componentCount = inferComponentCountFromChannels(channels, base.componentCount);
 
   return {
     ...base,
     channels,
+    componentCount,
+    parameters: base.parameters.map((parameter) => {
+      if (parameter.pinType === "relay" || parameter.pinType === "channel") {
+        return {
+          ...parameter,
+          pinCount: componentCount,
+        };
+      }
+      return parameter;
+    }),
     catalog: {
       ...base.catalog,
       channels,
+      componentCount,
     },
   };
 }

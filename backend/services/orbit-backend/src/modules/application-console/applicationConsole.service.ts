@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../middleware/error.middleware";
 import { iotService } from "../iot-orchestration/iot.service";
+import { defaultPrepareEnrollmentQrMetadata } from "./enrollmentQrMetadata.service";
 import { uploadEnrollmentQrSvgToS3 } from "./qrAssetStorage.service";
 import type { z } from "zod";
 import {
@@ -303,16 +304,24 @@ export const applicationConsoleService = {
 
     const token = generateQrToken();
     const expiresAt = new Date(Date.now() + (input.expiresInMinutes ?? DEFAULT_QR_EXPIRY_MINUTES) * 60_000);
+    const generatedAt = new Date().toISOString();
+    const qrVersion = Math.max(1, Number(device.onboardingVersion ?? 0));
+    const resolvedMetadata = await defaultPrepareEnrollmentQrMetadata(device.id, {
+      qrVersion,
+      generatedAt,
+      claimStatus: "pending",
+      s3QrPath: null,
+    });
     const qrPayloadObject = {
       type: input.qrType ?? "device_claim",
       token,
       deviceId: device.id,
       serialNumber: device.serialNumber,
       expiresAt: expiresAt.toISOString(),
+      metadata: resolvedMetadata,
     };
     const qrPayload = JSON.stringify(qrPayloadObject);
     const deepLink = `${input.deepLinkBase ?? "hiveconnect://device-claim"}?token=${encodeURIComponent(token)}`;
-    const qrSvg = await buildQrSvg(deepLink);
 
     const record = await prisma.deviceEnrollmentQr.create({
       data: {
@@ -325,14 +334,22 @@ export const applicationConsoleService = {
       },
     });
 
+    const qrSvg = await buildQrSvg(deepLink);
     const asset = await uploadEnrollmentQrSvgToS3({
       deviceRecordId: device.id,
       enrollmentId: record.id,
       token,
       svg: qrSvg,
     });
+    const finalizedMetadata = await defaultPrepareEnrollmentQrMetadata(device.id, {
+      qrVersion,
+      generatedAt,
+      claimStatus: "pending",
+      s3QrPath: asset.stored ? `s3://${asset.bucket}/${asset.key}` : null,
+    });
     const storedPayloadObject = {
       ...qrPayloadObject,
+      metadata: finalizedMetadata,
       asset,
     };
 

@@ -27,6 +27,35 @@ function getString(value: unknown): string | undefined {
   const trimmed = value.trim();
   return trimmed || undefined;
 }
+
+function inferDiscoveredChannels(rawPayload: Record<string, unknown> | undefined, fallback?: string) {
+  const explicit = getString(fallback);
+  if (explicit) return explicit;
+  if (!rawPayload || !isPlainObject(rawPayload)) return undefined;
+
+  const channelCandidate = rawPayload.channel;
+  const switchCandidate = rawPayload.switch_no ?? rawPayload.switchNo;
+
+  const parsedChannel =
+    typeof channelCandidate === "number" && Number.isFinite(channelCandidate)
+      ? channelCandidate
+      : typeof channelCandidate === "string"
+        ? Number(channelCandidate.trim())
+        : undefined;
+  if (typeof parsedChannel === "number" && Number.isFinite(parsedChannel) && parsedChannel > 0) {
+    return `${parsedChannel}S0F`;
+  }
+
+  const switchMatch = String(switchCandidate ?? "").trim().match(/^S?(\d+)$/i);
+  if (switchMatch) {
+    const parsed = Number(switchMatch[1]);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return `${parsed}S0F`;
+    }
+  }
+
+  return undefined;
+}
  
 function parseIotMetadata(metadata: string | null | undefined): Record<string, unknown> | null {
   if (!metadata) {
@@ -554,9 +583,10 @@ export const deviceService = {
   async upsertDiscovered(data: DiscoveredDeviceSyncInput) {
     const serialNumber = data.serialNumber.trim();
     const source = getString(data.source) ?? "connect-admin";
+    const resolvedChannels = inferDiscoveredChannels(data.rawPayload, getString(data.channels));
     const catalogSeed = await ensureElevateCatalog({
       serialNumber,
-      channels: getString(data.channels),
+      channels: resolvedChannels,
       firmwareVersion: getString(data.firmwareVersion),
       thingId: getString(data.thingId),
     });
@@ -581,7 +611,11 @@ export const deviceService = {
       itemCode: catalogSeed.template.itemCode,
       communicationPolicy: catalogSeed.template.communicationPolicy,
       deviceType: getString(seededCatalog.deviceType),
-      channels: getString(data.channels) ?? catalogSeed.template.channels,
+      channels: resolvedChannels ?? catalogSeed.template.channels,
+      componentCount:
+        typeof seededCatalog.componentCount === "number" && Number.isFinite(seededCatalog.componentCount)
+          ? seededCatalog.componentCount
+          : catalogSeed.template.componentCount,
       connectAdminDeviceId: serialNumber,
       thingId: getString(data.thingId) ?? getString(existing?.foreignId),
     };
@@ -589,7 +623,7 @@ export const deviceService = {
     const runtimeMetadata = {
       ...currentRuntime,
       firmwareVersion: getString(data.firmwareVersion) ?? currentRuntime.firmwareVersion,
-      channels: getString(data.channels) ?? currentRuntime.channels,
+      channels: resolvedChannels ?? currentRuntime.channels,
       thingId: getString(data.thingId) ?? currentRuntime.thingId,
       lastSeenAt: new Date().toISOString(),
     };
