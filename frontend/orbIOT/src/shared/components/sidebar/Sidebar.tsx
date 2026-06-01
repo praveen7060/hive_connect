@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Cpu } from "lucide-react";
 import { NAV_ITEMS, type AppNavItem, type AppNavSubItem } from "../../../app/router/navigation";
@@ -108,13 +107,6 @@ export default function Sidebar() {
   const location = useLocation();
   const activeSearch = new URLSearchParams(location.search);
 
-  const activeItem = useMemo(
-    () =>
-      NAV_ITEMS.find((item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) ??
-      NAV_ITEMS[0],
-    [location.pathname]
-  );
-
   return (
     <aside className="hidden h-screen w-[276px] flex-shrink-0 border-r border-[var(--iotiq-border)] bg-[#fcfcf8] xl:flex xl:flex-col">
       <div className="border-b border-[var(--iotiq-border)] px-5 py-5">
@@ -128,14 +120,6 @@ export default function Sidebar() {
               OWN ONBOARD OPERATE
             </p>
           </div>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-[var(--iotiq-border)] bg-white px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--iotiq-muted)]">Current</p>
-          <p className="mt-2 text-[15px] font-medium text-[#161616]">{activeItem?.label ?? "Dashboard"}</p>
-          <p className="mt-1 text-[12px] leading-5 text-[var(--iotiq-muted)]">
-            Minimal workspace with direct API-backed screens.
-          </p>
         </div>
       </div>
 

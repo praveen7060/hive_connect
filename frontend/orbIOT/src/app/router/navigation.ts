@@ -2,15 +2,10 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   AppWindow,
-  BarChart2,
-  Bell,
   HardDrive,
   Layers,
   LayoutDashboard,
-  Package,
-  RefreshCw,
   Sliders,
-  Users,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -113,66 +108,6 @@ export const NAV_ITEMS: AppNavItem[] = [
       { label: "Messages / Min", value: "48k", helper: "Current ingestion pace" },
       { label: "Drift Flags", value: "13", helper: "Metrics outside expected range" },
       { label: "Retention", value: "90d", helper: "Configured telemetry history" },
-    ],
-  },
-  {
-    id: "firmware",
-    label: "Firmware Mgmt",
-    path: "/firmware",
-    description: "Catalog firmware packages, rollout readiness, and compatibility coverage.",
-    icon: Package,
-    stats: [
-      { label: "Builds", value: "37", helper: "Published firmware versions" },
-      { label: "Approved", value: "11", helper: "Cleared for rollout" },
-      { label: "Blocked", value: "3", helper: "Pending QA sign-off" },
-    ],
-  },
-  {
-    id: "ota",
-    label: "OTA Updates",
-    path: "/ota-updates",
-    description: "Monitor live update campaigns, retries, and staged deployment progress.",
-    icon: RefreshCw,
-    stats: [
-      { label: "Campaigns Live", value: "4", helper: "Rolling out right now" },
-      { label: "Retry Queue", value: "29", helper: "Devices scheduled to retry" },
-      { label: "Completion", value: "76%", helper: "Average across active campaigns" },
-    ],
-  },
-  {
-    id: "alerts",
-    label: "Alerts",
-    path: "/alerts",
-    description: "Triage incidents, policy violations, and threshold breaches requiring review.",
-    icon: Bell,
-    stats: [
-      { label: "Critical", value: "6", helper: "Needs immediate response" },
-      { label: "Acknowledged", value: "41", helper: "Being tracked by operators" },
-      { label: "Muted Rules", value: "8", helper: "Temporarily suppressed policies" },
-    ],
-  },
-  {
-    id: "monitoring",
-    label: "Monitoring",
-    path: "/monitoring",
-    description: "Observe service uptime, broker health, and platform-wide operational trends.",
-    icon: BarChart2,
-    stats: [
-      { label: "Platform Uptime", value: "99.97%", helper: "Past 30 days" },
-      { label: "Broker Load", value: "61%", helper: "Current utilization" },
-      { label: "Latency P95", value: "182ms", helper: "API response percentile" },
-    ],
-  },
-  {
-    id: "users",
-    label: "User Management",
-    path: "/users",
-    description: "Manage operators, roles, and workspace access for the IoT control environment.",
-    icon: Users,
-    stats: [
-      { label: "Active Users", value: "64", helper: "Signed in during the last 30 days" },
-      { label: "Pending Invites", value: "7", helper: "Waiting for acceptance" },
-      { label: "Admin Roles", value: "5", helper: "Privileged accounts in scope" },
     ],
   },
 ];
