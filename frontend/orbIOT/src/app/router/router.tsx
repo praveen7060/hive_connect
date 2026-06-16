@@ -8,7 +8,10 @@ const ApplicationConsolePage = lazy(() => import("../../modules/application-cons
 const DashboardPage = lazy(() => import("../../modules/dashboard/page"));
 const DeviceControlPage = lazy(() => import("../../modules/device-control/page"));
 const TelemetryPage = lazy(() => import("../../modules/telemetry/page"));
+<<<<<<< Updated upstream
 const TransactionsPage = lazy(() => import("../../modules/transactions/page"));
+=======
+>>>>>>> Stashed changes
 
 function FeaturePage({ item }: { item: AppNavItem }) {
   const Icon = item.icon;
@@ -132,6 +135,7 @@ export default function AppRouter() {
                   >
                     <TelemetryPage />
                   </Suspense>
+<<<<<<< Updated upstream
                 ) : item.id === "transactions" ? (
                   <Suspense
                     fallback={
@@ -142,6 +146,8 @@ export default function AppRouter() {
                   >
                     <TransactionsPage />
                   </Suspense>
+=======
+>>>>>>> Stashed changes
                 ) : (
                   <FeaturePage item={item} />
                 )

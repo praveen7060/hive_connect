@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+<<<<<<< Updated upstream
 import { Activity, Cpu, RefreshCw, Wifi } from "lucide-react";
+=======
+import { Activity, Clock3, Cpu, RefreshCw, Wifi } from "lucide-react";
+>>>>>>> Stashed changes
 import { filterTelemetryLogs, useTelemetryAnimations, useTelemetryLogs } from "./hooks";
 import type { TelemetryFilters, TelemetryLogEntry } from "./types";
 import { TelemetryDeviceList } from "./components/TelemetryDeviceList";
@@ -69,6 +73,7 @@ export default function TelemetryPage() {
   }, [groups, selectedDeviceId]);
 
   const activeGroup = selectedDeviceId ? groups.find((group) => group.id === selectedDeviceId) ?? null : null;
+<<<<<<< Updated upstream
   const statCards = [
     {
       label: "Devices",
@@ -198,6 +203,98 @@ export default function TelemetryPage() {
           </div>
         )}
       </div>
+=======
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-[24px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--iotiq-muted)]">MQTT telemetry</p>
+            <h2 className="mt-2 text-[24px] font-medium tracking-[-0.05em] text-[#161616]">Device-wise message activity</h2>
+            <p className="mt-2 max-w-3xl text-[13px] leading-6 text-[var(--iotiq-muted)]">
+              Inspect recent MQTT telemetry grouped by device, follow timeline events, and open raw payload details without leaving the page.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="rounded-[18px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-3">
+              <div className="flex items-center gap-2 text-[var(--iotiq-primary)]">
+                <Cpu size={14} />
+                <span className="text-[10px] uppercase tracking-[0.16em]">Devices</span>
+              </div>
+              <p className="mt-2 text-[24px] font-medium tracking-[-0.04em] text-[#161616]">{stats.devices}</p>
+            </article>
+            <article className="rounded-[18px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-3">
+              <div className="flex items-center gap-2 text-[var(--iotiq-primary)]">
+                <Activity size={14} />
+                <span className="text-[10px] uppercase tracking-[0.16em]">Messages</span>
+              </div>
+              <p className="mt-2 text-[24px] font-medium tracking-[-0.04em] text-[#161616]">{stats.logs}</p>
+            </article>
+            <article className="rounded-[18px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-3">
+              <div className="flex items-center gap-2 text-[var(--iotiq-primary)]">
+                <Wifi size={14} />
+                <span className="text-[10px] uppercase tracking-[0.16em]">Connected</span>
+              </div>
+              <p className="mt-2 text-[24px] font-medium tracking-[-0.04em] text-[#161616]">{stats.connected}</p>
+            </article>
+            <article className="rounded-[18px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-3">
+              <div className="flex items-center gap-2 text-[#b55c45]">
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+                <span className="text-[10px] uppercase tracking-[0.16em]">Errors</span>
+              </div>
+              <p className="mt-2 text-[24px] font-medium tracking-[-0.04em] text-[#161616]">{stats.errors}</p>
+            </article>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-[12px] text-[var(--iotiq-muted)]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#eef9ef] px-3 py-1.5 text-[#155d27]">
+            <Clock3 size={13} />
+            Last loaded {formatRelative(lastLoadedAt)}
+          </span>
+          {activeGroup ? (
+            <span className="rounded-full bg-[#fff8e7] px-3 py-1.5 text-[#8a6511]">
+              Focused on {activeGroup.label}
+            </span>
+          ) : (
+            <span className="rounded-full bg-[#fafaf5] px-3 py-1.5">Viewing all device feeds</span>
+          )}
+        </div>
+      </div>
+
+      <TelemetryFiltersBar
+        filters={filters}
+        availableTypes={availableTypes}
+        refreshing={refreshing}
+        pollingEnabled={pollingEnabled}
+        onChange={setFilters}
+        onRefresh={() => void reload()}
+        onTogglePolling={() => setPollingEnabled((value) => !value)}
+      />
+
+      {loading ? (
+        <TelemetrySkeleton />
+      ) : error ? (
+        <TelemetryErrorState message={error} onRetry={() => void reload()} />
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <TelemetryDeviceList groups={groups} selectedDeviceId={selectedDeviceId} onSelect={setSelectedDeviceId} />
+
+          {visibleEntries.length === 0 ? (
+            <TelemetryEmptyState onRefresh={() => void reload()} />
+          ) : (
+            <TelemetryTimeline
+              entries={visibleEntries}
+              selectedLogId={selectedLog?.id ?? null}
+              animatedIds={animatedIds}
+              onSelect={setSelectedLog}
+            />
+          )}
+        </div>
+      )}
+>>>>>>> Stashed changes
 
       <TelemetryLogDrawer entry={selectedLog} onClose={() => setSelectedLog(null)} />
     </section>
