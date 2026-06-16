@@ -403,7 +403,7 @@ async function bootstrapWorkflow(
     }
 
     const effectiveSerial = serialNumber ?? previousDevice.serialNumber;
-    await orm.$queryRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", `orbit:device:${effectiveSerial}`);
+    await orm.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", `orbit:device:${effectiveSerial}`);
 
     const existingMetadata = parseJsonObject(previousDevice?.metadata);
     const incomingMetadata = parseJsonObject(input.metadata);
@@ -424,7 +424,7 @@ async function bootstrapWorkflow(
       getString(catalog.thingName) ??
       getString(previousDevice?.foreignId) ??
       generateThingId(effectiveSerial);
-    await orm.$queryRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", `orbit:thing:${requestedThingId}`);
+    await orm.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", `orbit:thing:${requestedThingId}`);
 
     if (mode === "update" && previousDevice?.foreignId && requestedThingId !== previousDevice.foreignId) {
       throw new ApiError(409, "Thing ID cannot be changed for an already provisioned device");
@@ -639,7 +639,7 @@ async function finalizeProvisioning(
 
   await prisma.$transaction(async (tx) => {
     const orm = tx as any;
-    await orm.$queryRawUnsafe(
+    await orm.$executeRawUnsafe(
       "SELECT pg_advisory_xact_lock(hashtext($1))",
       `orbit:device:${bootstrap.provisionalDevice.id}`
     );
@@ -735,7 +735,7 @@ async function finalizeQr(
 
   return prisma.$transaction(async (tx) => {
     const orm = tx as any;
-    await orm.$queryRawUnsafe(
+    await orm.$executeRawUnsafe(
       "SELECT pg_advisory_xact_lock(hashtext($1))",
       `orbit:device:${bootstrap.provisionalDevice.id}`
     );

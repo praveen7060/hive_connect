@@ -7,6 +7,7 @@ import {
   fetchProvisioningDocuments,
   provisionThingAndStoreCertificates
 } from '../services/iot-provisioning.service'
+import { isThingIdUniqueConstraintError } from '../services/device-thing-assignment.service'
 
 const router = Router()
 
@@ -211,6 +212,36 @@ router.post('/devices/onboard', async (req, res) => {
       async (tx) => {
         const orm = tx as any
         const current = await orm.device.findUnique({ where: { deviceId } })
+        await orm.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `internal:thing:${thingName}`)
+        const existingThingDevice = await orm.device.findUnique({ where: { thingId: thingName } })
+
+        if (existingThingDevice && existingThingDevice.deviceId !== deviceId) {
+          const reusableProvisioning = buildProvisioningSummaryFromDevice(existingThingDevice)
+          if (!current && reusableProvisioning) {
+            const reusedDevice = await orm.device.update({
+              where: { deviceId: existingThingDevice.deviceId },
+              data: {
+                deviceType,
+                ...(channels ? { channels } : {})
+              }
+            })
+
+            return {
+              existingDevice: existingThingDevice,
+              device: reusedDevice,
+              provisioning: reusableProvisioning,
+              reused: true
+            }
+          }
+
+          throw new Error(JSON.stringify({
+            statusCode: 409,
+            error: 'Thing ID is already assigned to another device',
+            existingDeviceId: existingThingDevice.deviceId,
+            existingThingId: existingThingDevice.thingId
+          }))
+        }
+
         if (
           current?.thingId &&
           !forceProvision &&
@@ -251,40 +282,54 @@ router.post('/devices/onboard', async (req, res) => {
           assetVersion
         })
 
-        const nextDevice = await orm.device.upsert({
-          where: { deviceId },
-          update: {
-            deviceType,
-            thingId: nextProvisioning.thingName,
-            certificateId: nextProvisioning.certificateId,
-            certificateArn: nextProvisioning.certificateArn,
-            certificateBucket: nextProvisioning.bucket,
-            certificateRegion: nextProvisioning.region,
-            certificateVersion: nextProvisioning.assetVersion,
-            certificateKey: nextProvisioning.s3Keys.certificate,
-            privateKeyKey: nextProvisioning.s3Keys.privateKey,
-            publicKeyKey: nextProvisioning.s3Keys.publicKey,
-            metadataKey: nextProvisioning.s3Keys.metadata,
-            lastProvisionedAt: new Date(nextProvisioning.generatedAt),
-            ...(channels ? { channels } : {})
-          },
-          create: {
-            deviceId,
-            deviceType,
-            thingId: nextProvisioning.thingName,
-            certificateId: nextProvisioning.certificateId,
-            certificateArn: nextProvisioning.certificateArn,
-            certificateBucket: nextProvisioning.bucket,
-            certificateRegion: nextProvisioning.region,
-            certificateVersion: nextProvisioning.assetVersion,
-            certificateKey: nextProvisioning.s3Keys.certificate,
-            privateKeyKey: nextProvisioning.s3Keys.privateKey,
-            publicKeyKey: nextProvisioning.s3Keys.publicKey,
-            metadataKey: nextProvisioning.s3Keys.metadata,
-            lastProvisionedAt: new Date(nextProvisioning.generatedAt),
-            ...(channels ? { channels } : {})
+        let nextDevice
+        try {
+          nextDevice = await orm.device.upsert({
+            where: { deviceId },
+            update: {
+              deviceType,
+              thingId: nextProvisioning.thingName,
+              certificateId: nextProvisioning.certificateId,
+              certificateArn: nextProvisioning.certificateArn,
+              certificateBucket: nextProvisioning.bucket,
+              certificateRegion: nextProvisioning.region,
+              certificateVersion: nextProvisioning.assetVersion,
+              certificateKey: nextProvisioning.s3Keys.certificate,
+              privateKeyKey: nextProvisioning.s3Keys.privateKey,
+              publicKeyKey: nextProvisioning.s3Keys.publicKey,
+              metadataKey: nextProvisioning.s3Keys.metadata,
+              lastProvisionedAt: new Date(nextProvisioning.generatedAt),
+              ...(channels ? { channels } : {})
+            },
+            create: {
+              deviceId,
+              deviceType,
+              thingId: nextProvisioning.thingName,
+              certificateId: nextProvisioning.certificateId,
+              certificateArn: nextProvisioning.certificateArn,
+              certificateBucket: nextProvisioning.bucket,
+              certificateRegion: nextProvisioning.region,
+              certificateVersion: nextProvisioning.assetVersion,
+              certificateKey: nextProvisioning.s3Keys.certificate,
+              privateKeyKey: nextProvisioning.s3Keys.privateKey,
+              publicKeyKey: nextProvisioning.s3Keys.publicKey,
+              metadataKey: nextProvisioning.s3Keys.metadata,
+              lastProvisionedAt: new Date(nextProvisioning.generatedAt),
+              ...(channels ? { channels } : {})
+            }
+          })
+        } catch (error) {
+          if (!isThingIdUniqueConstraintError(error)) {
+            throw error
           }
-        })
+          const owner = await orm.device.findUnique({ where: { thingId: nextProvisioning.thingName } })
+          throw new Error(JSON.stringify({
+            statusCode: 409,
+            error: 'Thing ID is already assigned to another device',
+            existingDeviceId: owner?.deviceId ?? null,
+            existingThingId: nextProvisioning.thingName
+          }))
+        }
 
         return {
           existingDevice: current,
@@ -315,6 +360,7 @@ router.post('/devices/onboard', async (req, res) => {
         if (parsed && typeof parsed === 'object' && parsed.statusCode) {
           return res.status(Number(parsed.statusCode)).json({
             error: parsed.error || 'Request failed',
+            existingDeviceId: parsed.existingDeviceId,
             existingThingId: parsed.existingThingId
           })
         }
@@ -349,34 +395,75 @@ router.post('/devices/register', async (req, res) => {
       return res.status(400).json({ error: 'deviceType must be a non-empty string' })
     }
 
-    const device = await acquireDeviceLock(`internal:register:${deviceId}`, async (tx) =>
-      (tx as any).device.upsert({
-        where: { deviceId },
-        update: {
-          deviceType,
-          ...(thingId ? { thingId } : {}),
-          ...(channels ? { channels } : {}),
-          ...(firmwareVersion ? { firmwareVersion } : {}),
-          ...(ipAddress ? { ipAddress } : {}),
-          ...(macAddress ? { macAddress } : {})
-        },
-        create: {
-          deviceId,
-          deviceType,
-          thingId: thingId || null,
-          ...(channels ? { channels } : {}),
-          ...(firmwareVersion ? { firmwareVersion } : {}),
-          ...(ipAddress ? { ipAddress } : {}),
-          ...(macAddress ? { macAddress } : {})
+    const device = await acquireDeviceLock(`internal:register:${deviceId}`, async (tx) => {
+      const orm = tx as any
+      if (thingId) {
+        await orm.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `internal:thing:${thingId}`)
+        const existingThingDevice = await orm.device.findUnique({ where: { thingId } })
+        if (existingThingDevice && existingThingDevice.deviceId !== deviceId) {
+          throw new Error(JSON.stringify({
+            statusCode: 409,
+            error: 'Thing ID is already assigned to another device',
+            existingDeviceId: existingThingDevice.deviceId,
+            existingThingId: existingThingDevice.thingId
+          }))
         }
-      })
-    )
+      }
+
+      try {
+        return await orm.device.upsert({
+          where: { deviceId },
+          update: {
+            deviceType,
+            ...(thingId ? { thingId } : {}),
+            ...(channels ? { channels } : {}),
+            ...(firmwareVersion ? { firmwareVersion } : {}),
+            ...(ipAddress ? { ipAddress } : {}),
+            ...(macAddress ? { macAddress } : {})
+          },
+          create: {
+            deviceId,
+            deviceType,
+            thingId: thingId || null,
+            ...(channels ? { channels } : {}),
+            ...(firmwareVersion ? { firmwareVersion } : {}),
+            ...(ipAddress ? { ipAddress } : {}),
+            ...(macAddress ? { macAddress } : {})
+          }
+        })
+      } catch (error) {
+        if (!isThingIdUniqueConstraintError(error)) {
+          throw error
+        }
+        const owner = await orm.device.findUnique({ where: { thingId } })
+        throw new Error(JSON.stringify({
+          statusCode: 409,
+          error: 'Thing ID is already assigned to another device',
+          existingDeviceId: owner?.deviceId ?? null,
+          existingThingId: thingId
+        }))
+      }
+    })
 
     return res.status(201).json({
       success: true,
       device
     })
   } catch (error) {
+    if (error instanceof Error) {
+      try {
+        const parsed = JSON.parse(error.message)
+        if (parsed && typeof parsed === 'object' && parsed.statusCode) {
+          return res.status(Number(parsed.statusCode)).json({
+            error: parsed.error || 'Request failed',
+            existingDeviceId: parsed.existingDeviceId,
+            existingThingId: parsed.existingThingId
+          })
+        }
+      } catch {
+        // noop
+      }
+    }
     console.error('Internal device register failed:', error)
     return res.status(500).json({
       error: error instanceof Error ? error.message : 'Failed to register device'

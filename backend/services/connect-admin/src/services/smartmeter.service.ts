@@ -1,4 +1,8 @@
 import { prisma } from '../db/prisma'
+import {
+  buildSafeThingAssignment,
+  isThingIdUniqueConstraintError
+} from './device-thing-assignment.service'
 import { promises as fs } from 'fs'
 import * as path from 'path'
 
@@ -406,24 +410,37 @@ export async function handleSmartMeterAlive(topic: string, payload: any) {
   const thingId = topic.split('/')[2]
 
   try {
-    await prisma.device.upsert({
-      where: { deviceId: payload.deviceid },
-      update: {
-        thingId,
-        ipAddress: payload.ipaddress,
-        macAddress: payload.macaddress,
-        firmwareVersion: payload.firmware_version,
-        deviceType: 'SMART_METER'
-      },
-      create: {
-        deviceId: payload.deviceid,
-        thingId,
-        deviceType: 'SMART_METER',
-        ipAddress: payload.ipaddress,
-        macAddress: payload.macaddress,
-        firmwareVersion: payload.firmware_version
+    const thingAssignment = await buildSafeThingAssignment(payload.deviceid, thingId)
+
+    const writeDevice = (includeThingId: boolean) =>
+      prisma.device.upsert({
+        where: { deviceId: payload.deviceid },
+        update: {
+          ...(includeThingId ? thingAssignment : {}),
+          ipAddress: payload.ipaddress,
+          macAddress: payload.macaddress,
+          firmwareVersion: payload.firmware_version,
+          deviceType: 'SMART_METER'
+        },
+        create: {
+          deviceId: payload.deviceid,
+          ...(includeThingId ? thingAssignment : {}),
+          deviceType: 'SMART_METER',
+          ipAddress: payload.ipaddress,
+          macAddress: payload.macaddress,
+          firmwareVersion: payload.firmware_version
+        }
+      })
+
+    try {
+      await writeDevice(true)
+    } catch (error) {
+      if (!isThingIdUniqueConstraintError(error)) {
+        throw error
       }
-    })
+      console.warn(`Retrying smart meter alive write without thingId for ${payload.deviceid}`)
+      await writeDevice(false)
+    }
 
     console.log(`🟢 Smart Meter alive: ${payload.deviceid}`)
   } catch (error) {

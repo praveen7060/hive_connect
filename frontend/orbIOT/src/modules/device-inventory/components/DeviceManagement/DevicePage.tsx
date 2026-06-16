@@ -7,7 +7,15 @@ import {
   Trash2,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Plus,
+  Wifi,
+  ShieldCheck,
+  Cpu,
+  Router,
+  RadioTower,
+  Cable,
 } from "lucide-react";
 import DeviceWorkflowBuilder from "./DeviceWorkflowBuilder";
 import DeviceDetailsView from "./DeviceDetailsView";
@@ -85,6 +93,8 @@ interface StatCardProps {
   label: string;
   value: string;
   sub: string;
+  progress: number;
+  tone: "slate" | "amber" | "emerald" | "blue";
 }
 
 interface BadgeProps {
@@ -101,11 +111,12 @@ const FILTERS: FilterConfig[] = [
 const COLUMNS: ColumnConfig[] = [
   { key: "name", label: "Name" },
   { key: "serialNumber", label: "Serial Number" },
-  { key: "connectionType", label: "Connection Type" },
+  { key: "connectionType", label: "Connection" },
   { key: "status", label: "Status" },
-  { key: "createdAt", label: "Created" },
   { key: "updatedAt", label: "Updated" },
 ];
+
+const PAGE_SIZE = 8;
 
 const INITIAL_ROWS: DeviceRow[] = [];
 
@@ -366,42 +377,82 @@ function buildMergedMetadata(
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 const CONNECTION_COLORS: Record<string, string> = {
-  MQTT: "bg-violet-50 text-violet-700 border-violet-200",
-  HTTP: "bg-sky-50 text-sky-700 border-sky-200",
-  CoAP: "bg-amber-50 text-amber-700 border-amber-200",
+  MQTT: "bg-[#eef2ff] text-[#4f46e5] border-[#c7d2fe]",
+  HTTP: "bg-[#ecfeff] text-[#0e7490] border-[#a5f3fc]",
+  CoAP: "bg-[#faf5ff] text-[#9333ea] border-[#e9d5ff]",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  provisioning: "bg-blue-50 text-blue-700 border-blue-200",
-  inactive: "bg-slate-100 text-slate-500 border-slate-200",
+  active: "bg-[#dffbef] text-[#059669] border-[#98f0c5]",
+  provisioning: "bg-[#fff7dd] text-[#d97706] border-[#fcd66c]",
+  inactive: "bg-[#eef2f7] text-[#64748b] border-[#d8e0ea]",
 };
 
 function Badge({ value, variant = "default" }: BadgeProps) {
   let cls = "bg-gray-100 text-gray-600 border-gray-200";
   if (variant === "connection") cls = CONNECTION_COLORS[value] ?? cls;
   if (variant === "status") cls = STATUS_COLORS[value] ?? cls;
+  const label = variant === "status" && value === "active" ? "Online" : variant === "status" && value === "inactive" ? "Offline" : value;
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold tracking-wide ${cls}`}
+      className={`inline-flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] font-bold ${cls}`}
     >
-      {value}
+      {variant === "status" ? <span className="h-2.5 w-2.5 rounded-full bg-current opacity-80" /> : null}
+      {label}
     </span>
   );
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub }: StatCardProps) {
+const STAT_TONES: Record<StatCardProps["tone"], string> = {
+  slate: "bg-[#2f6df6]",
+  amber: "bg-[#f59e0b]",
+  emerald: "bg-[#10b981]",
+  blue: "bg-[#8b5cf6]",
+};
+
+function StatCard({ label, value, sub, progress, tone }: StatCardProps) {
   return (
-    <div className="inventory-kpi-card rounded-2xl px-6 py-5 flex flex-col gap-1">
-      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p
-        className="inventory-kpi-value text-[38px] leading-none mt-1"
-      >
-        {value}
-      </p>
-      <p className="text-[12px] text-slate-500 mt-1.5">{sub}</p>
+    <div className="inventory-kpi-card rounded-[20px] border border-[#e5ebf4] bg-white px-7 py-6 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#9aa9bd]">{label}</p>
+      <p className="mt-5 text-[46px] font-semibold leading-none text-[#0f172a]">{value}</p>
+      <div className="mt-5 h-1.5 rounded-full bg-[#edf2f7]">
+        <div
+          className={`h-full rounded-full ${STAT_TONES[tone]}`}
+          style={{ width: `${Math.max(8, Math.min(progress, 100))}%` }}
+        />
+      </div>
+      <p className="mt-4 text-[14px] font-medium text-[#90a0b8]">{sub}</p>
     </div>
+  );
+}
+
+function relativeUpdated(value: PrimitiveValue | undefined): string {
+  if (!value) return "updated recently";
+  const timestamp = new Date(String(value)).getTime();
+  if (Number.isNaN(timestamp)) return "updated recently";
+  const days = Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000));
+  if (days === 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return weeks === 1 ? "1w ago" : `${weeks}w ago`;
+}
+
+function DeviceIcon({ row }: { row: DeviceRow }) {
+  const descriptor = `${row.itemTypeName ?? row.itemType ?? row.name ?? ""}`.toLowerCase();
+  const Icon = descriptor.includes("gateway")
+    ? Router
+    : descriptor.includes("sensor")
+      ? RadioTower
+      : descriptor.includes("actuator")
+        ? Cable
+        : Cpu;
+
+  return (
+    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f1f6fb] text-[#71829a]">
+      <Icon size={19} strokeWidth={2.1} />
+    </span>
   );
 }
 
@@ -412,6 +463,7 @@ export default function DeviceManagementPage() {
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | number | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [filters, setFilters] = useState<Record<string, string>>(
     FILTERS.reduce<Record<string, string>>((acc, f) => {
       acc[f.key] = "all";
@@ -497,9 +549,28 @@ export default function DeviceManagementPage() {
     });
   }, [filters, rows, searchTerm]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const pageStartIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedRows = filteredRows.slice(pageStartIndex, pageStartIndex + PAGE_SIZE);
+  const visibleStart = filteredRows.length === 0 ? 0 : pageStartIndex + 1;
+  const visibleEnd = Math.min(pageStartIndex + PAGE_SIZE, filteredRows.length);
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   const provisioningCount = rows.filter((r) => r.status === "provisioning").length;
   const activeCount = rows.filter((r) => r.status === "active").length;
   const mqttCount = rows.filter((r) => r.connectionType === "MQTT").length;
+  const totalCount = Math.max(rows.length, 1);
+  const activePercent = (activeCount / totalCount) * 100;
+  const provisioningPercent = (provisioningCount / totalCount) * 100;
+  const mqttPercent = (mqttCount / totalCount) * 100;
   const selectedDevice = useMemo(
     () => rows.find((row) => row.id === selectedDeviceId) ?? null,
     [rows, selectedDeviceId]
@@ -872,14 +943,44 @@ export default function DeviceManagementPage() {
     const display = col.format ? col.format(row[col.key], row) : fmt(row[col.key]);
     if (col.key === "connectionType") return <Badge value={display} variant="connection" />;
     if (col.key === "status") return <Badge value={display} variant="status" />;
+    if (col.key === "name") {
+      const description =
+        String(row.itemTypeName ?? row.itemType ?? "").trim() ||
+        String(row.project ?? "").trim() ||
+        "Controller";
+      const location =
+        String(row.site ?? row.location ?? row.vendorName ?? "").trim() ||
+        String(row.project ?? "").trim() ||
+        "Plant fleet";
+
+      return (
+        <div className="flex min-w-[260px] items-center gap-4">
+          <DeviceIcon row={row} />
+          <div className="min-w-0">
+            <p className="truncate text-[16px] font-black leading-5 tracking-[-0.015em] text-[#111827]">
+              {display}
+            </p>
+            <p className="mt-1 truncate text-[14px] font-semibold leading-4 text-[#94a3b8]">
+              {description} - {location}
+            </p>
+          </div>
+        </div>
+      );
+    }
+    if (col.key === "updatedAt") {
+      return (
+        <div className="min-w-[120px]">
+          <p className="text-[15px] font-bold text-[#334155]">{display}</p>
+          <p className="mt-1 text-[13px] font-semibold text-[#9aa9bd]">{relativeUpdated(row.updatedAt)}</p>
+        </div>
+      );
+    }
     return (
       <span
         className={`text-[13px] ${
-          col.key === "name"
-            ? "font-bold text-slate-900"
-            : col.key === "serialNumber"
-            ? "font-mono text-slate-600 text-[12px]"
-            : "font-normal text-slate-500"
+          col.key === "serialNumber"
+            ? "font-mono text-[15px] font-medium text-[#64748b]"
+            : "font-semibold text-[#64748b]"
         }`}
       >
         {display}
@@ -889,7 +990,7 @@ export default function DeviceManagementPage() {
 
   return (
     <div
-      className="inventory-page-theme min-h-screen w-full"
+      className="inventory-page-theme min-h-screen w-full bg-[#f5f8fc]"
     >
       <style>{`
         @keyframes slideInPanel {
@@ -919,48 +1020,61 @@ export default function DeviceManagementPage() {
         }
       `}</style>
 
-      {/* Top bar */}
-      <div className="flex items-start justify-between px-4 pt-4 pb-0 md:px-5">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2">
-            Device Inventory
-          </p>
-          <h1
-            className="text-[44px] text-slate-900"
-            style={{ fontWeight: 900, letterSpacing: "-0.035em", lineHeight: 1 }}
-          >
-            Device Management
-          </h1>
-          <p className="mt-2.5 text-[14px] text-slate-500">
-            Create device records and assign connection details.
-          </p>
-        </div>
+      <div className="border-b border-[#e5ebf4] bg-[#f5f8fc] px-6 py-8 md:px-10 lg:px-12">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-[13px] font-semibold uppercase tracking-[0.22em] text-[#2f6df6]">
+              IOTIQ Platform - Device Inventory
+            </p>
+            <h1 className="mt-4 text-[40px] font-semibold leading-none text-[#111827] md:text-[44px]">
+              Device Management
+            </h1>
+            <p className="mt-5 text-[18px] font-medium leading-7 text-[#7c8ba1]">
+              Review enrolled devices, assigned sites, and lifecycle status across the fleet.
+            </p>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (formOpen) {
-              handleCancel();
-              return;
-            }
-            openCreate();
-          }}
-          className={`mt-1 flex items-center gap-2 rounded-xl px-6 py-3 text-[13px] font-bold shadow-md transition-all active:scale-95 ${
-            formOpen
-              ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
-              : "bg-slate-900 text-white hover:bg-slate-700 hover:shadow-lg"
-          }`}
-        >
-          {formOpen ? (
-            <><X size={14} strokeWidth={2.5} />Close</>
-          ) : (
-            <><Plus size={15} strokeWidth={2.5} />Add Device</>
-          )}
-        </button>
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex h-16 min-w-[150px] items-center gap-4">
+              <Wifi size={28} strokeWidth={2.6} className="text-[#10b981]" />
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8797af]">Fleet</p>
+                <p className="text-[18px] font-bold leading-5 text-[#0f172a]">Connected</p>
+              </div>
+            </div>
+            <div className="flex h-16 min-w-[150px] items-center gap-4">
+              <ShieldCheck size={28} strokeWidth={2.6} className="text-[#2f6df6]" />
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#8797af]">Policy</p>
+                <p className="text-[18px] font-bold leading-5 text-[#0f172a]">Protected</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (formOpen) {
+                  handleCancel();
+                  return;
+                }
+                openCreate();
+              }}
+              className={`flex h-16 min-w-[168px] items-center justify-center gap-3 rounded-xl px-5 text-[16px] font-semibold leading-5 transition active:scale-95 ${
+                formOpen
+                  ? "text-[#334155] hover:bg-[#eef2f7]"
+                  : "bg-[#0f172a] text-white hover:bg-[#1e293b]"
+              }`}
+            >
+              {formOpen ? (
+                <><X size={20} strokeWidth={2.4} />Close</>
+              ) : (
+                <><Plus size={24} strokeWidth={2.6} />Add Device</>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {formOpen ? (
-      <div className="mt-4 px-3 pb-10 md:px-4 lg:px-5">
         <DeviceWorkflowBuilder
           title={editingId ? "Edit Device Workflow" : "Create Device Workflow"}
           subtitle="Choose catalog components in order, add missing records with +, and then create the device."
@@ -1002,54 +1116,53 @@ export default function DeviceManagementPage() {
             await createItemOne(payload as Partial<ItemRow>);
           }}
         />
-      </div>
       ) : (
       <>
       {/* Stat Cards */}
-      <div className="mt-6 grid grid-cols-2 gap-4 px-4 md:px-5 lg:grid-cols-4">
-        <StatCard label="Total Devices" value={String(rows.length)} sub="all registered devices" />
-        <StatCard label="Provisioning" value={String(provisioningCount)} sub="awaiting activation" />
-        <StatCard label="Active" value={String(activeCount)} sub="currently online" />
-        <StatCard label="MQTT" value={String(mqttCount)} sub="using MQTT protocol" />
+      <div className="grid grid-cols-1 gap-5 px-6 py-8 md:grid-cols-2 md:px-10 lg:grid-cols-4 lg:px-12">
+        <StatCard label="Total Devices" value={String(rows.length)} sub="all registered devices" progress={100} tone="slate" />
+        <StatCard label="Provisioning" value={String(provisioningCount)} sub="awaiting activation" progress={provisioningPercent} tone="amber" />
+        <StatCard label="Active" value={String(activeCount)} sub="currently online" progress={activePercent} tone="emerald" />
+        <StatCard label="MQTT" value={String(mqttCount)} sub="using MQTT protocol" progress={mqttPercent} tone="blue" />
       </div>
       {error && (
-        <div className="mt-4 px-4 md:px-5">
+        <div className="px-6 md:px-10 lg:px-12">
           <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-[12px] text-rose-700">
             {error}
           </p>
         </div>
       )}
       {submitError && (
-        <div className="mt-4 px-4 md:px-5">
+        <div className="mt-4 px-6 md:px-10 lg:px-12">
           <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-[12px] text-rose-700">
             {submitError}
           </p>
         </div>
       )}
       {loading && (
-        <div className="mt-4 px-4 md:px-5">
+        <div className="mt-4 px-6 md:px-10 lg:px-12">
           <p className="text-[12px] text-slate-500">Loading devices...</p>
         </div>
       )}
 
       {/* Main split layout */}
-      <div className="mt-6 flex items-start gap-6 px-4 pb-12 md:px-5">
+      <div className="flex items-start gap-6 px-6 pb-12 md:px-10 lg:px-12">
 
         {/* Table column */}
         <div className="flex-1 min-w-0">
           {/* Filter bar */}
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_224px_240px_auto]">
+            <div className="relative min-w-0">
+              <Search size={24} className="pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 text-[#8ea0b8]" />
               <input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search devices…"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-[13px] text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 placeholder:text-slate-400"
+                placeholder="Search devices, serials, sites..."
+                className="h-[62px] w-full rounded-2xl border border-[#dbe4ef] bg-white pl-16 pr-12 text-[19px] font-medium text-[#111827] shadow-[0_8px_18px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-[#94a3b8] focus:border-[#93b4ff] focus:ring-4 focus:ring-[#dbeafe]"
               />
               {searchTerm && (
-                <button type="button" onClick={() => setSearchTerm("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-                  <X size={13} />
+                <button type="button" onClick={() => setSearchTerm("")} className="absolute right-5 top-1/2 -translate-y-1/2 text-[#8ea0b8] transition hover:text-[#334155]">
+                  <X size={18} />
                 </button>
               )}
             </div>
@@ -1059,35 +1172,40 @@ export default function DeviceManagementPage() {
                 <select
                   value={filters[f.key]}
                   onChange={(e) => setFilters((c) => ({ ...c, [f.key]: e.target.value }))}
-                  className="h-11 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-9 text-[13px] text-slate-700 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 cursor-pointer"
+                  className="h-[56px] w-full cursor-pointer appearance-none rounded-2xl border border-[#dbe4ef] bg-white pl-5 pr-11 text-[16px] font-bold text-[#64748b] shadow-[0_8px_18px_rgba(15,23,42,0.04)] outline-none transition focus:border-[#93b4ff] focus:ring-4 focus:ring-[#dbeafe]"
                 >
-                  <option value="all">{f.label}</option>
+                  <option value="all">{f.label === "Type" ? "Type  All Types" : "Status  All Statuses"}</option>
                   {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <ChevronDown size={18} className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-[#8ea0b8]" />
               </div>
             ))}
 
             {hasActiveFilters && (
-              <button type="button" onClick={resetFilters} className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 h-11 text-[13px] text-slate-500 shadow-sm hover:text-slate-700 hover:border-slate-300 transition-colors">
-                <RotateCcw size={12} />
+              <button type="button" onClick={resetFilters} className="flex h-[56px] items-center justify-center gap-2 rounded-2xl border border-[#dbe4ef] bg-white px-5 text-[14px] font-bold text-[#64748b] shadow-[0_8px_18px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:text-[#334155]">
+                <RotateCcw size={16} />
                 Clear
               </button>
             )}
           </div>
 
           {/* Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-[20px] border border-[#e5ebf4] bg-white shadow-[0_18px_42px_rgba(15,23,42,0.07)]">
+            <div className="border-b border-[#e5ebf4] px-7 py-5">
+              <p className="text-[18px] font-black text-[#111827]">
+                {filteredRows.length} device{filteredRows.length !== 1 ? "s" : ""} <span className="font-bold text-[#9aa9bd]">- sorted by updated</span>
+              </p>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70">
+                  <tr className="border-b border-[#e5ebf4] bg-white">
                     {COLUMNS.map((col) => (
-                      <th key={col.key} className="whitespace-nowrap px-6 py-4 text-left text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
-                        {col.label}
+                      <th key={col.key} className="whitespace-nowrap px-7 py-4 text-left text-[12px] font-black uppercase tracking-[0.14em] text-[#9aa9bd]">
+                        {col.label} {col.key === "updatedAt" ? <ChevronDown size={14} className="ml-1 inline text-[#111827]" /> : <span className="text-[#cbd5e1]">^</span>}
                       </th>
                     ))}
-                    <th className="px-6 py-4 text-right text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Actions</th>
+                    <th className="px-7 py-4 text-right text-[12px] font-black uppercase tracking-[0.14em] text-[#9aa9bd]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1104,29 +1222,33 @@ export default function DeviceManagementPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((row) => (
+                    paginatedRows.map((row) => (
                       <tr
                         key={row.id}
                         onClick={() => openDetails(row)}
-                        className={`cursor-pointer border-b border-slate-50 last:border-0 transition-colors hover:bg-slate-50/70 ${editingId === row.id ? "bg-blue-50/30" : ""}`}
+                        className={`cursor-pointer border-b border-[#edf2f7] last:border-0 transition-colors hover:bg-[#f8fbff] ${editingId === row.id ? "bg-[#eff6ff]" : ""}`}
                       >
                         {COLUMNS.map((col) => (
-                          <td key={col.key} className="whitespace-nowrap px-6 py-4">
+                          <td key={col.key} className="whitespace-nowrap px-7 py-5">
                             {resolveCell(col, row)}
                           </td>
                         ))}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="px-7 py-5">
+                          <div className="flex items-center justify-end gap-3">
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openEdit(row);
                               }}
-                              className={`rounded-lg p-2 transition-colors ${editingId === row.id ? "bg-blue-100 text-blue-600" : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"}`}
+                              className={`flex h-11 w-11 items-center justify-center rounded-xl border shadow-[0_6px_14px_rgba(47,109,246,0.10)] transition-colors ${
+                                editingId === row.id
+                                  ? "border-[#93c5fd] bg-[#dbeafe] text-[#2563eb]"
+                                  : "border-[#bfdbfe] bg-[#eff6ff] text-[#2f6df6] hover:border-[#2f6df6] hover:bg-[#dbeafe]"
+                              }`}
                               aria-label="Edit device"
                             >
-                              <Pencil size={13} strokeWidth={2.2} />
+                              <Pencil size={18} strokeWidth={2.2} />
                             </button>
                             {deleteConfirm === row.id ? (
                               <div className="flex items-center gap-1 rounded-lg bg-red-50 border border-red-100 px-2.5 py-1.5">
@@ -1160,10 +1282,10 @@ export default function DeviceManagementPage() {
                                   event.stopPropagation();
                                   setDeleteConfirm(row.id);
                                 }}
-                                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                                className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#fecaca] bg-[#fff7f7] text-[#ef4444] shadow-[0_6px_14px_rgba(239,68,68,0.10)] transition-colors hover:border-[#ef4444] hover:bg-[#fff1f2]"
                                 aria-label="Delete device"
                               >
-                                <Trash2 size={13} strokeWidth={2.2} />
+                                <Trash2 size={18} strokeWidth={2.2} />
                               </button>
                             )}
                           </div>
@@ -1174,9 +1296,45 @@ export default function DeviceManagementPage() {
                 </tbody>
               </table>
             </div>
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-6 py-4 text-[11px] font-semibold text-slate-400">
+            <div className="flex flex-col gap-4 border-t border-[#cbd5e1] bg-[#eef4fb] px-7 py-5 text-[12px] font-bold text-[#475569] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] md:flex-row md:items-center md:justify-between">
               <span>{filteredRows.length} device{filteredRows.length !== 1 ? "s" : ""}</span>
-              <span>{filteredRows.length === 0 ? "0 results" : `1–${filteredRows.length} of ${rows.length}`}</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <span>{filteredRows.length === 0 ? "0 results" : `${visibleStart}-${visibleEnd} of ${filteredRows.length}`}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cbd5e1] bg-white text-[#334155] shadow-[0_6px_14px_rgba(15,23,42,0.08)] transition hover:border-[#2f6df6] hover:text-[#2f6df6] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none disabled:hover:border-[#cbd5e1] disabled:hover:text-[#94a3b8]"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={16} strokeWidth={2.4} />
+                  </button>
+                  {pageNumbers.map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={`h-9 min-w-9 rounded-xl px-3 text-[12px] font-bold transition ${
+                        currentPage === pageNumber
+                          ? "bg-[#0f172a] text-white shadow-[0_8px_18px_rgba(15,23,42,0.16)]"
+                          : "border border-[#cbd5e1] bg-white text-[#334155] shadow-[0_6px_14px_rgba(15,23,42,0.08)] hover:border-[#2f6df6] hover:text-[#2f6df6]"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cbd5e1] bg-white text-[#334155] shadow-[0_6px_14px_rgba(15,23,42,0.08)] transition hover:border-[#2f6df6] hover:text-[#2f6df6] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none disabled:hover:border-[#cbd5e1] disabled:hover:text-[#94a3b8]"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={16} strokeWidth={2.4} />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

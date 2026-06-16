@@ -14,6 +14,12 @@ const MQTT_DOCS_TIMEOUT_MS = (() => {
   const parsed = Number(raw ?? DEFAULT_MQTT_DOCS_TIMEOUT_MS);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_MQTT_DOCS_TIMEOUT_MS;
 })();
+const DEFAULT_DEVICE_ONBOARDING_TIMEOUT_MS = 90000;
+const DEVICE_ONBOARDING_TIMEOUT_MS = (() => {
+  const raw = import.meta.env.VITE_DEVICE_ONBOARDING_TIMEOUT_MS as string | undefined;
+  const parsed = Number(raw ?? DEFAULT_DEVICE_ONBOARDING_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_DEVICE_ONBOARDING_TIMEOUT_MS;
+})();
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 type FallbackHttpMethod = "PUT" | "PATCH";
@@ -243,6 +249,17 @@ async function apiRequest<T>(
               .filter(Boolean);
           }
           if (typeof candidate === "string") return [candidate];
+          if (candidate && typeof candidate === "object") {
+            return Object.entries(candidate as Record<string, unknown>)
+              .map(([key, value]) => {
+                if (value === null || value === undefined) return "";
+                if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+                  return `${key}: ${String(value)}`;
+                }
+                return "";
+              })
+              .filter(Boolean);
+          }
           return [];
         })
         .join(", ");
@@ -328,14 +345,22 @@ async function apiRequestWithFallback<T>(
 }
 
 function createCrudApi<T, CreateInput = Partial<T>, UpdateInput = Partial<T>>(
-  resourcePath: string
+  resourcePath: string,
+  options?: { createTimeoutMs?: number; updateTimeoutMs?: number }
 ): CrudApi<T, CreateInput, UpdateInput> {
   return {
     list: () => apiRequest<T[]>(`/${resourcePath}`, "GET"),
     getById: (id: EntityId) => apiRequest<T>(`/${resourcePath}/${id}`, "GET"),
-    create: (payload: CreateInput) => apiRequest<T>(`/${resourcePath}`, "POST", payload),
+    create: (payload: CreateInput) =>
+      apiRequest<T>(`/${resourcePath}`, "POST", payload, options?.createTimeoutMs),
     update: (id: EntityId, payload: UpdateInput) =>
-      apiRequestWithFallback<T>(`/${resourcePath}/${id}`, "PATCH", "PUT", payload),
+      apiRequestWithFallback<T>(
+        `/${resourcePath}/${id}`,
+        "PATCH",
+        "PUT",
+        payload,
+        options?.updateTimeoutMs
+      ),
     remove: (id: EntityId) => apiRequest<void>(`/${resourcePath}/${id}`, "DELETE"),
   };
 }
@@ -347,7 +372,10 @@ export const deviceInventoryApi = {
   communications: createCrudApi<any>("communications"),
   messages: createCrudApi<any>("messages"),
   items: createCrudApi<any>("items"),
-  devices: createCrudApi<any>("devices"),
+  devices: createCrudApi<any>("devices", {
+    createTimeoutMs: DEVICE_ONBOARDING_TIMEOUT_MS,
+    updateTimeoutMs: DEVICE_ONBOARDING_TIMEOUT_MS,
+  }),
   applicationConsoleApps: createCrudApi<any>("application-console/apps"),
   iot: {
     provisionThing: (payload: IotProvisionRequest) =>

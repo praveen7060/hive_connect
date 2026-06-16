@@ -6,6 +6,7 @@ import {
   Layers,
   LayoutDashboard,
   Sliders,
+  ReceiptText,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -108,6 +109,18 @@ export const NAV_ITEMS: AppNavItem[] = [
       { label: "Messages / Min", value: "48k", helper: "Current ingestion pace" },
       { label: "Drift Flags", value: "13", helper: "Metrics outside expected range" },
       { label: "Retention", value: "90d", helper: "Configured telemetry history" },
+    ],
+  },
+  {
+    id: "transactions",
+    label: "Transactions",
+    path: "/transactions",
+    description: "Review device events, command requests, billing activity, and operational transaction history.",
+    icon: ReceiptText,
+    stats: [
+      { label: "Today", value: "1,842", helper: "Transactions processed" },
+      { label: "Pending", value: "27", helper: "Awaiting confirmation" },
+      { label: "Success Rate", value: "98.7%", helper: "Completed without exception" },
     ],
   },
 ];

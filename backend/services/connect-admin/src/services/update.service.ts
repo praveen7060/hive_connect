@@ -1,4 +1,8 @@
 import { prisma } from '../db/prisma'
+import {
+  buildSafeThingAssignment,
+  isThingIdUniqueConstraintError
+} from './device-thing-assignment.service'
 import { syncDiscoveredDeviceToOrbit, syncTelemetryToOrbit } from './orbit-sync.service'
 import { provisionThingAndStoreCertificates } from './iot-provisioning.service'
 import { handleSmartMeterUpdate, isSmartMeter } from './smartmeter.service'
@@ -101,6 +105,7 @@ export async function handleUpdate(payload: any, topic?: string) {
     }
 
     const thingId = extractThingId(topic)
+    const thingAssignment = await buildSafeThingAssignment(deviceid, thingId)
 
     if (isSmartMeter(deviceid)) {
       await handleSmartMeterUpdate(payload)
@@ -135,23 +140,45 @@ export async function handleUpdate(payload: any, topic?: string) {
 
     if (!device) {
       console.warn(`Device not found: ${deviceid}. Auto-creating...`)
-      device = await prisma.device.create({
-        data: {
-          deviceId: deviceid,
-          deviceType: inferDeviceType(deviceid),
-          ...(thingId ? { thingId } : {}),
-          ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
+      const createDevice = (includeThingId: boolean) =>
+        prisma.device.create({
+          data: {
+            deviceId: deviceid,
+            deviceType: inferDeviceType(deviceid),
+            ...(includeThingId ? thingAssignment : {}),
+            ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
+          }
+        })
+
+      try {
+        device = await createDevice(true)
+      } catch (error) {
+        if (!isThingIdUniqueConstraintError(error)) {
+          throw error
         }
-      })
+        console.warn(`Retrying update auto-create without thingId for ${deviceid}`)
+        device = await createDevice(false)
+      }
       console.log(`Device auto-created: ${deviceid}`)
     } else if (thingId || typeof firmware_version === 'string') {
-      device = await prisma.device.update({
-        where: { deviceId: deviceid },
-        data: {
-          ...(thingId ? { thingId } : {}),
-          ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
+      const updateDevice = (includeThingId: boolean) =>
+        prisma.device.update({
+          where: { deviceId: deviceid },
+          data: {
+            ...(includeThingId ? thingAssignment : {}),
+            ...(typeof firmware_version === 'string' ? { firmwareVersion: firmware_version } : {})
+          }
+        })
+
+      try {
+        device = await updateDevice(true)
+      } catch (error) {
+        if (!isThingIdUniqueConstraintError(error)) {
+          throw error
         }
-      })
+        console.warn(`Retrying update write without thingId for ${deviceid}`)
+        device = await updateDevice(false)
+      }
     }
 
     if (device.thingId && !device.certificateId) {

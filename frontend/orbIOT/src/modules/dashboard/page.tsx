@@ -256,19 +256,36 @@ function MetricCard({
   helper: string;
   icon: React.ReactNode;
 }) {
+  const isOff = label.toLowerCase().includes("off");
+  const isStale = label.toLowerCase().includes("stale");
+  const tone = isOff || isStale
+    ? {
+        icon: "bg-[#fff6e7] text-[#f59e0b]",
+        status: isStale ? "WATCH" : "LIVE",
+        statusClass: "text-[#f59e0b]",
+        dot: "bg-[#f59e0b]",
+      }
+    : {
+        icon: "bg-[#e8fbf2] text-[#10b981]",
+        status: "LIVE",
+        statusClass: "text-[#10b981]",
+        dot: "bg-[#10b981]",
+      };
+
   return (
-    <article className="rounded-[20px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+    <article className="min-h-[188px] rounded-[24px] border border-[#e5ebf4] bg-white px-8 py-7 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
       <div className="flex items-center justify-between gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eef9ef] text-[#155d27]">
+        <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tone.icon}`}>
           {icon}
         </span>
-        <span className="rounded-full bg-[#fff8e7] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#8a6511]">
-          Live
+        <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] ${tone.statusClass}`}>
+          <span className={`h-2.5 w-2.5 rounded-full ${tone.dot}`} />
+          {tone.status}
         </span>
       </div>
-      <p className="mt-4 text-[11px] uppercase tracking-[0.14em] text-[var(--iotiq-muted)]">{label}</p>
-      <p className="mt-1 text-[28px] font-medium tracking-[-0.05em] text-[#161616]">{value}</p>
-      <p className="mt-2 text-[12px] leading-5 text-[var(--iotiq-muted)]">{helper}</p>
+      <p className="mt-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-[#9aa9bd]">{label}</p>
+      <p className="mt-2 text-[44px] font-semibold leading-none tracking-[-0.03em] text-[#0f172a]">{value}</p>
+      <p className="mt-2 max-w-[230px] text-[15px] font-medium leading-6 text-[#94a3b8]">{helper}</p>
     </article>
   );
 }
@@ -285,50 +302,50 @@ function StateFeed({
   }>;
 }) {
   return (
-    <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
+    <article className="max-h-[620px] overflow-hidden rounded-[24px] border border-[#e5ebf4] bg-white px-8 py-8 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[12px] font-medium text-[#161616]">Recent state updates</p>
-          <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">Latest live device state changes from telemetry</p>
+          <p className="text-[22px] font-semibold tracking-[-0.02em] text-[#111827]">Recent state updates</p>
+          <p className="mt-3 max-w-[360px] text-[16px] font-medium leading-7 text-[#9aa9bd]">Latest live device state changes from telemetry.</p>
         </div>
-        <span className="rounded-full bg-[#eef9ef] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#155d27]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#eef4ff] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#2f6df6]">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#2f6df6]" />
           Live feed
         </span>
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-8 space-y-7">
         {items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--iotiq-border)] px-4 py-8 text-center text-[12px] text-[var(--iotiq-muted)]">
             No telemetry-driven state updates yet.
           </div>
         ) : (
           items.map((item) => (
-            <div key={item.id} className="rounded-2xl bg-[#fafaf5] px-4 py-3">
+            <div key={item.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-[#161616]">{item.name}</p>
-                  <p className="mt-1 text-[11px] text-[var(--iotiq-muted)]">{item.switchLabel}</p>
+                  <p className="truncate text-[17px] font-semibold text-[#111827]">{item.name}</p>
+                  <p className="mt-1 text-[15px] font-medium text-[#94a3b8]">{item.switchLabel} - {formatRelative(item.updatedAt)}</p>
                 </div>
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${
+                  className={`inline-flex shrink-0 items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] ${
                     item.state === "on"
-                      ? "bg-[#eef9ef] text-[#155d27]"
+                      ? "text-[#059669]"
                       : item.state === "off"
-                        ? "bg-[#fff8e7] text-[#8a6511]"
-                        : "bg-[#f3f4ef] text-[#6f7468]"
+                        ? "text-[#f59e0b]"
+                        : "text-[#64748b]"
                   }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      item.state === "on" ? "bg-[#7caf63]" : item.state === "off" ? "bg-[#d9b14a]" : "bg-[#b8beb2]"
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      item.state === "on" ? "bg-[#10b981]" : item.state === "off" ? "bg-[#f59e0b]" : "bg-[#cbd5e1]"
                     }`}
                   />
                   {item.state}
                 </span>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[var(--iotiq-muted)]">
-                <span>{formatRelative(item.updatedAt)}</span>
-                <span>{item.updatedAt ? item.updatedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "-"}</span>
+              <div className="mt-2 flex justify-end text-[15px] font-medium text-[#c0cad8]">
+                {item.updatedAt ? item.updatedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "-"}
               </div>
             </div>
           ))
@@ -341,21 +358,20 @@ function StateFeed({
 function DualStateLineChart({
   onData,
   offData,
+  controls,
 }: {
   onData: Array<{ label: string; value: number }>;
   offData: Array<{ label: string; value: number }>;
+  controls?: React.ReactNode;
 }) {
-  const chartWidth = 720;
+  const chartWidth = 760;
   const chartHeight = 240;
-  const padding = { top: 24, right: 28, bottom: 42, left: 34 };
+  const padding = { top: 18, right: 28, bottom: 34, left: 38 };
   const maxValue = Math.max(
     ...onData.map((entry) => entry.value),
     ...offData.map((entry) => entry.value),
     1
   );
-  const onTotal = onData.reduce((sum, entry) => sum + entry.value, 0);
-  const offTotal = offData.reduce((sum, entry) => sum + entry.value, 0);
-
   const getX = (index: number, total: number) => {
     if (total <= 1) return padding.left;
     return padding.left + (index / (total - 1)) * (chartWidth - padding.left - padding.right);
@@ -375,6 +391,11 @@ function DualStateLineChart({
   const offPoints = buildPoints(offData);
   const buildPath = (points: Array<{ x: number; y: number }>) =>
     points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const baseline = chartHeight - padding.bottom;
+  const buildAreaPath = (points: Array<{ x: number; y: number }>) => {
+    if (points.length === 0) return "";
+    return `${buildPath(points)} L ${points[points.length - 1].x} ${baseline} L ${points[0].x} ${baseline} Z`;
+  };
   const gridLines = Array.from({ length: 4 }, (_, index) => {
     const value = Math.round((maxValue / 3) * (3 - index));
     return {
@@ -384,34 +405,43 @@ function DualStateLineChart({
   });
 
   return (
-    <article className="mt-4 rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="flex h-full min-h-[400px] w-full flex-col rounded-[24px] border border-[#e5ebf4] bg-white px-7 py-5 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+      <div className="flex items-start justify-between gap-6">
         <div>
-          <p className="text-[12px] font-medium text-[#161616]">ON / OFF state activity</p>
-          <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">
+          <p className="text-[20px] font-semibold tracking-[-0.02em] text-[#111827]">ON / OFF state activity</p>
+          <p className="mt-2 max-w-[520px] text-[14px] font-medium leading-6 text-[#9aa9bd]">
             Devices whose latest telemetry reported ON or OFF in each time bucket.
           </p>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#eef9ef] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#155d27]">
-            <span className="h-2 w-2 rounded-full bg-[#86bd67]" />
-            ON {onTotal}
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#fff1f1] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#9b1c1c]">
-            <span className="h-2 w-2 rounded-full bg-[#e85d5d]" />
-            OFF {offTotal}
-          </span>
+        <div className="flex shrink-0 flex-col items-end gap-3">
+          <div className="flex flex-wrap justify-end gap-5">
+            <span className="inline-flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.04em] text-[#71829a]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" />
+              ON
+            </span>
+            <span className="inline-flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.04em] text-[#71829a]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
+              OFF
+            </span>
+          </div>
+          {controls}
         </div>
       </div>
 
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-4 min-h-0 flex-1 overflow-hidden">
         <svg
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          className="h-[240px] min-w-[640px] w-full"
+          className="block h-full min-h-[260px] w-full"
           role="img"
           aria-label="Dual line chart comparing ON and OFF state activity"
         >
-          <rect x="0" y="0" width={chartWidth} height={chartHeight} rx="18" fill="#fafaf5" />
+          <defs>
+            <linearGradient id="dashboard-on-area" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width={chartWidth} height={chartHeight} fill="#ffffff" />
           {gridLines.map((line) => (
             <g key={`${line.value}-${line.y}`}>
               <line
@@ -419,46 +449,31 @@ function DualStateLineChart({
                 x2={chartWidth - padding.right}
                 y1={line.y}
                 y2={line.y}
-                stroke="#e6e7dc"
+                stroke="#e8eef6"
                 strokeDasharray="4 6"
               />
-              <text x={padding.left - 10} y={line.y + 4} textAnchor="end" className="fill-[#8b9285] text-[10px]">
+              <text x={padding.left - 10} y={line.y + 4} textAnchor="end" className="fill-[#a9b5c7] text-[11px]">
                 {line.value}
               </text>
             </g>
           ))}
-          <path d={buildPath(offPoints)} fill="none" stroke="#e85d5d" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={buildPath(onPoints)} fill="none" stroke="#86bd67" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          {offPoints.map((point) => (
-            <g key={`off-${point.label}`}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#e85d5d" stroke="#ffffff" strokeWidth="2" />
-              <text x={point.x} y={point.y - 10} textAnchor="middle" className="fill-[#9b1c1c] text-[10px] font-medium">
-                {point.value}
-              </text>
-            </g>
-          ))}
-          {onPoints.map((point) => (
-            <g key={`on-${point.label}`}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#86bd67" stroke="#ffffff" strokeWidth="2" />
-              <text x={point.x} y={point.y - 10} textAnchor="middle" className="fill-[#155d27] text-[10px] font-medium">
-                {point.value}
-              </text>
-            </g>
-          ))}
+          <path d={buildAreaPath(onPoints)} fill="url(#dashboard-on-area)" />
+          <path d={buildPath(offPoints)} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={buildPath(onPoints)} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           {onPoints.map((point, index) => (
             <text
               key={`label-${point.label}-${index}`}
               x={point.x}
-              y={chartHeight - 16}
+              y={chartHeight - 12}
               textAnchor="middle"
-              className="fill-[var(--iotiq-muted)] text-[10px]"
+              className="fill-[#a9b5c7] text-[11px] font-medium"
             >
               {point.label}
             </text>
           ))}
         </svg>
       </div>
-    </article>
+    </div>
   );
 }
 
@@ -676,98 +691,121 @@ export default function DashboardPage() {
   };
 
   return (
-    <section className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[0.82fr_1.38fr]">
-        <div className="grid gap-3 sm:grid-cols-2">
+    <section className="min-h-screen bg-[#f5f8fc] px-8 py-9 lg:px-12">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="mt-1 inline-flex h-8 items-center gap-2 rounded-full bg-[#e8eefc] px-4 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#2f6df6]">
+            <Cpu size={14} strokeWidth={2.4} />
+            IoT
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold uppercase tracking-[0.16em] text-[#2f6df6]">IOTIQ<br />Platform</p>
+          </div>
+          <div className="border-l border-[#dbe4ef] pl-4">
+            <p className="text-[18px] font-medium leading-7 text-[#9aa9bd]">Operations<br />overview</p>
+          </div>
+        </div>
+
+        <div className="inline-flex h-12 items-center gap-3 rounded-full bg-white px-6 text-[17px] font-semibold text-[#334155] shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#dffbef]">
+            <span className="h-3 w-3 rounded-full bg-[#10b981]" />
+          </span>
+          All systems operational
+        </div>
+      </div>
+
+      <div className="mt-1">
+        <h1 className="text-[42px] font-semibold leading-none tracking-[-0.03em] text-[#0f172a]">Dashboard</h1>
+        <p className="mt-6 max-w-[980px] text-[20px] font-medium leading-8 text-[#71829a]">
+          Track fleet health, key system events, and the current operational posture in one place.
+        </p>
+      </div>
+
+      <div className="mt-10 grid items-stretch gap-6 lg:grid-cols-[minmax(520px,640px)_minmax(560px,1fr)]">
+        <div className="grid gap-6 sm:grid-cols-2">
           <MetricCard
-            icon={<Power size={18} />}
+            icon={<Power size={22} />}
             label="Currently On"
             value={String(stats.currentlyOn)}
             helper={`${stats.mqttDevices} MQTT devices reporting live state`}
           />
           <MetricCard
-            icon={<Activity size={18} />}
+            icon={<Activity size={22} />}
             label="Currently Off"
             value={String(stats.currentlyOff)}
             helper="Latest telemetry state marked off"
           />
           <MetricCard
-            icon={<TrendingUp size={18} />}
+            icon={<TrendingUp size={22} />}
             label="Updates 24h"
             value={String(stats.recentUpdates)}
             helper="Devices with telemetry in the last day"
           />
           <MetricCard
-            icon={<Clock3 size={18} />}
+            icon={<Clock3 size={22} />}
             label="Stale Devices"
             value={String(stats.staleDevices)}
-            helper="No live telemetry in the last 24 hours"
+            helper="No live telemetry in the last 48 hours"
           />
         </div>
 
-        <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[12px] font-medium text-[#161616]">State analytics</p>
-              <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">
-                Compare live ON and OFF state updates across hourly, weekly, and monthly telemetry windows.
-              </p>
-            </div>
-            <div className="inline-flex rounded-full border border-[var(--iotiq-border)] bg-[#fafaf5] p-1">
+        <DualStateLineChart
+          onData={analytics.on}
+          offData={analytics.off}
+          controls={
+            <div className="inline-flex rounded-xl bg-[#f0f4f9] p-1">
               {(["hourly", "weekly", "monthly"] as Timeframe[]).map((option) => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => setTimeframe(option)}
-                  className={`rounded-full px-3 py-2 text-[11px] font-medium capitalize transition ${
+                  className={`rounded-lg px-4 py-2 text-[12px] font-semibold capitalize transition ${
                     timeframe === option
-                      ? "bg-white text-[#161616] shadow-[0_10px_18px_rgba(17,17,17,0.06)]"
-                      : "text-[var(--iotiq-muted)] hover:text-[#161616]"
+                      ? "bg-white text-[#111827] shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
+                      : "text-[#71829a] hover:text-[#111827]"
                   }`}
                 >
                   {option}
                 </button>
               ))}
             </div>
-          </div>
-
-          <DualStateLineChart onData={analytics.on} offData={analytics.off} />
-        </article>
+          }
+        />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.95fr]">
-
-        <article className="rounded-[22px] border border-[var(--iotiq-border)] bg-white px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <article className="rounded-[24px] border border-[#e5ebf4] bg-white px-8 py-8 shadow-[0_14px_34px_rgba(15,23,42,0.08)]">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[12px] font-medium text-[#161616]">Quick Actions</p>
-              <p className="mt-1 text-[12px] text-[var(--iotiq-muted)]">
+              <p className="text-[22px] font-semibold tracking-[-0.02em] text-[#111827]">Quick Actions</p>
+              <p className="mt-3 max-w-[620px] text-[16px] font-medium leading-7 text-[#9aa9bd]">
                 Register apps, generate QR sessions, and seed devices without leaving the dashboard.
               </p>
             </div>
-            <span className="rounded-full bg-[#eef9ef] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[#155d27]">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#e8fbf2] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#10b981]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" />
               {loading ? "Syncing" : "Ready"}
             </span>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
             {[
               {
                 title: "Register your application",
                 helper: "Create an application profile and generate a fresh link QR.",
-                icon: <AppWindow size={16} />,
+                icon: <AppWindow size={22} />,
                 action: openAppDrawer,
               },
               {
                 title: "Create device for item type",
                 helper: "Select an item type and item, then assign the next serial number.",
-                icon: <Package size={16} />,
+                icon: <Package size={22} />,
                 action: openDeviceModal,
               },
               {
                 title: "Device control",
                 helper: "Run commands from claimed devices.",
-                icon: <ShieldCheck size={16} />,
+                icon: <ShieldCheck size={22} />,
                 action: () => {
                   window.location.href = "/device-control";
                 },
@@ -775,7 +813,7 @@ export default function DashboardPage() {
               {
                 title: "Telemetry",
                 helper: "Inspect transport and device activity.",
-                icon: <Activity size={16} />,
+                icon: <Activity size={22} />,
                 action: () => {
                   window.location.href = "/telemetry";
                 },
@@ -785,18 +823,22 @@ export default function DashboardPage() {
                 key={item.title}
                 type="button"
                 onClick={item.action}
-                className="rounded-[18px] border border-[var(--iotiq-border)] bg-[#fafaf5] px-4 py-4 text-left transition hover:border-[#d9b14a] hover:bg-white"
+                className="rounded-[20px] border border-[#e5ebf4] bg-white px-7 py-7 text-left transition hover:border-[#bcd1ff] hover:shadow-[0_12px_28px_rgba(47,109,246,0.08)]"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#eef9ef] text-[#155d27]">
-                  {item.icon}
+                <div className="flex items-start gap-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#eef4ff] text-[#2f6df6]">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <p className="text-[19px] font-semibold leading-6 text-[#111827]">{item.title}</p>
+                    <p className="mt-2 text-[16px] font-medium leading-7 text-[#94a3b8]">{item.helper}</p>
+                  </div>
                 </div>
-                <p className="mt-3 text-[14px] font-medium text-[#161616]">{item.title}</p>
-                <p className="mt-1 text-[12px] leading-5 text-[var(--iotiq-muted)]">{item.helper}</p>
               </button>
             ))}
           </div>
           {quickActionSuccess ? (
-            <p className="mt-3 rounded-[16px] border border-[#dcebd6] bg-[#f6fbf2] px-3 py-2 text-[12px] text-[#51753d]">
+            <p className="mt-5 rounded-[16px] border border-[#b6eed5] bg-[#ecfdf5] px-4 py-3 text-[13px] font-medium text-[#047857]">
               {quickActionSuccess}
             </p>
           ) : null}

@@ -22,15 +22,15 @@ export function TelemetryFiltersBar({
   onTogglePolling: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--iotiq-border)] bg-white p-4">
+    <div className="rounded-[20px] border border-[#e5ebf4] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.07)]">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-4 py-3">
-          <Search size={16} className="text-[var(--iotiq-muted)]" />
+        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-[#dbe4ef] bg-white px-5 py-4 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
+          <Search size={18} className="text-[#94a3b8]" />
           <input
             value={filters.search}
             onChange={(event) => onChange({ ...filters, search: event.target.value })}
             placeholder="Search device ID, thing ID, topic, or payload keyword"
-            className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-[#161616] outline-none placeholder:text-[#a1a69a]"
+            className="min-w-0 flex-1 border-0 bg-transparent text-[15px] font-medium text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
           />
         </div>
 
@@ -38,7 +38,7 @@ export function TelemetryFiltersBar({
           <button
             type="button"
             onClick={onRefresh}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--iotiq-border)] bg-[#fafaf5] px-3 py-2 text-[12px] font-medium text-[#161616] transition hover:bg-white"
+            className="inline-flex h-[52px] items-center gap-2 rounded-2xl border border-[#dbe4ef] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0_8px_18px_rgba(15,23,42,0.04)] transition hover:border-[#2f6df6] hover:text-[#2f6df6]"
           >
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             Refresh
@@ -46,8 +46,8 @@ export function TelemetryFiltersBar({
           <button
             type="button"
             onClick={onTogglePolling}
-            className={`rounded-full px-3 py-2 text-[12px] font-medium transition ${
-              pollingEnabled ? "bg-[#111111] text-white" : "border border-[var(--iotiq-border)] bg-[#fafaf5] text-[#161616]"
+            className={`h-[52px] rounded-2xl px-4 text-[13px] font-bold transition ${
+              pollingEnabled ? "bg-[#0f172a] text-white shadow-[0_10px_22px_rgba(15,23,42,0.16)]" : "border border-[#dbe4ef] bg-white text-[#334155]"
             }`}
           >
             {pollingEnabled ? "Polling on" : "Polling off"}
@@ -55,8 +55,8 @@ export function TelemetryFiltersBar({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#eef9ef] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] text-[#155d27]">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <span className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#eef4ff] px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#2f6df6]">
           <SlidersHorizontal size={13} />
           Filters
         </span>
@@ -64,7 +64,7 @@ export function TelemetryFiltersBar({
         <select
           value={filters.timeRange}
           onChange={(event) => onChange({ ...filters, timeRange: event.target.value as TelemetryTimeRange })}
-          className="rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-2 text-[12px] text-[#161616]"
+          className="h-11 rounded-xl border border-[#dbe4ef] bg-white px-3 text-[13px] font-semibold text-[#334155]"
         >
           {timeRanges.map((option) => (
             <option key={option} value={option}>
@@ -77,13 +77,13 @@ export function TelemetryFiltersBar({
           value={filters.topic}
           onChange={(event) => onChange({ ...filters, topic: event.target.value })}
           placeholder="Filter by topic"
-          className="rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-2 text-[12px] text-[#161616] placeholder:text-[#a1a69a]"
+          className="h-11 rounded-xl border border-[#dbe4ef] bg-white px-3 text-[13px] font-semibold text-[#334155] placeholder:text-[#94a3b8]"
         />
 
         <select
           value={filters.status}
           onChange={(event) => onChange({ ...filters, status: event.target.value as TelemetryFilters["status"] })}
-          className="rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-2 text-[12px] text-[#161616]"
+          className="h-11 rounded-xl border border-[#dbe4ef] bg-white px-3 text-[13px] font-semibold text-[#334155]"
         >
           {statuses.map((option) => (
             <option key={option} value={option}>
@@ -95,7 +95,7 @@ export function TelemetryFiltersBar({
         <select
           value={filters.messageType}
           onChange={(event) => onChange({ ...filters, messageType: event.target.value })}
-          className="rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-2 text-[12px] text-[#161616]"
+          className="h-11 rounded-xl border border-[#dbe4ef] bg-white px-3 text-[13px] font-semibold text-[#334155]"
         >
           <option value="">All message types</option>
           {availableTypes.map((type) => (
@@ -105,12 +105,12 @@ export function TelemetryFiltersBar({
           ))}
         </select>
 
-        <label className="inline-flex items-center gap-2 rounded-full border border-[var(--iotiq-border)] bg-[#fcfcf8] px-3 py-2 text-[12px] text-[#161616]">
+        <label className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#dbe4ef] bg-white px-3 text-[13px] font-semibold text-[#334155]">
           <input
             type="checkbox"
             checked={filters.errorOnly}
             onChange={(event) => onChange({ ...filters, errorOnly: event.target.checked })}
-            className="h-3.5 w-3.5 accent-[var(--iotiq-primary)]"
+            className="h-3.5 w-3.5 accent-[#2f6df6]"
           />
           Error logs only
         </label>
